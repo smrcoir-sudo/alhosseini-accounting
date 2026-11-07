@@ -26,18 +26,18 @@
     let g = document.getElementById('authGate');
     if(!g){ const st=document.createElement('style'); st.textContent=css; document.head.appendChild(st); g=document.createElement('div'); g.id='authGate'; document.body.appendChild(g); }
     if(mode==='pending'){
-      g.innerHTML = `<div class="card"><div class="logo">ح</div><h1>${shop}</h1><p>حساب شما ساخته شد ولی هنوز توسط مدیر تأیید نشده است. پس از تأیید مدیر، صفحه را دوباره باز کنید.</p><div class="msg">${note||''}</div><button id="ag_re">بررسی دوباره</button><button class="lnk" id="ag_out">خروج و ورود با حساب دیگر</button></div>`;
+      g.innerHTML = `<div class="card"><div class="logo">ح</div><h1>${shop}</h1><p>حساب شما فعال نیست یا توسط مدیر غیرفعال شده است. برای فعال‌سازی با مدیر صرافی تماس بگیرید.</p><div class="msg">${note||''}</div><button id="ag_re">بررسی دوباره</button><button class="lnk" id="ag_out">خروج و ورود با حساب دیگر</button></div>`;
       g.querySelector('#ag_re').onclick=()=>location.reload(); g.querySelector('#ag_out').onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
       return;
     }
-    const signup = mode==='signup', reset = mode==='reset';
+    const signup = false, reset = mode==='reset';
     g.innerHTML = `<div class="card"><div class="logo">ح</div><h1>${shop}</h1><p>${signup?'ثبت‌نام همکار جدید — پس از ثبت‌نام، مدیر باید حساب شما را تأیید کند.':reset?'ایمیل خود را وارد کنید تا لینک تغییر رمز برایتان ارسال شود.':'نرم‌افزار حسابداری صرافی — برای ادامه وارد شوید.'}</p>
       <form id="ag_f">${signup?'<label>نام و نام خانوادگی</label><input id="ag_n" autocomplete="name" style="direction:rtl;text-align:right">':''}
       <label>ایمیل</label><input id="ag_e" type="email" autocomplete="username" required>
       ${reset?'':`<label>رمز عبور</label><input id="ag_p" type="password" autocomplete="${signup?'new-password':'current-password'}" required minlength="6">`}
       <button type="submit" id="ag_b">${signup?'ثبت‌نام':reset?'ارسال لینک':'ورود'}</button></form>
       <div class="msg" id="ag_m">${note||''}</div>
-      ${signup||reset?'<button class="lnk" id="ag_login">بازگشت به ورود</button>':'<button class="lnk" id="ag_su">ثبت‌نام همکار جدید</button><button class="lnk" id="ag_fp">رمز را فراموش کرده‌ام</button>'}</div>`;
+      ${reset?'<button class="lnk" id="ag_login">بازگشت به ورود</button>':'<button class="lnk" id="ag_fp">رمز را فراموش کرده‌ام</button><p style="margin:14px 0 0;font-size:12px;text-align:center">حساب کاربری فقط توسط مدیر صرافی ساخته می‌شود.</p>'}</div>`;
     const m=g.querySelector('#ag_m');
     g.querySelector('#ag_login')&&(g.querySelector('#ag_login').onclick=()=>gate('login'));
     g.querySelector('#ag_su')&&(g.querySelector('#ag_su').onclick=()=>gate('signup'));
@@ -71,7 +71,15 @@
     addLogout();
     return true;
   }
-  function addLogout(){ const tryAdd=()=>{ const sbar=document.querySelector('.statusbar .wrap'); if(!sbar){ setTimeout(tryAdd,500); return; } if(document.getElementById('sbOut')) return; const b=document.createElement('button'); b.id='sbOut'; b.className='btn sm'; b.style.marginInlineStart='8px'; b.textContent='خروج ('+ (ME.member?.name||ME.email) +')'; b.onclick=async()=>{ await sb.auth.signOut(); location.reload(); }; sbar.appendChild(b); new MutationObserver(()=>{ if(!document.getElementById('sbOut')) sbar.appendChild(b); }).observe(sbar,{childList:true}); }; tryAdd(); }
+  function addLogout(){ const tryAdd=()=>{ const sbar=document.querySelector('.statusbar .wrap'); if(!sbar){ setTimeout(tryAdd,500); return; } if(document.getElementById('sbOut')) return; const b=document.createElement('button'); b.id='sbOut'; b.className='btn sm'; b.style.marginInlineStart='8px'; b.textContent='خروج ('+ (ME.member?.name||ME.email) +')'; b.onclick=async()=>{ await sb.auth.signOut(); location.reload(); }; sbar.appendChild(b);
+    const c=document.createElement('button'); c.id='sbPw'; c.className='btn sm'; c.style.marginInlineStart='6px'; c.textContent='تغییر رمز'; c.onclick=changeMyPassword; sbar.appendChild(c); new MutationObserver(()=>{ if(!document.getElementById('sbOut')) sbar.appendChild(b); if(!document.getElementById('sbPw')) sbar.appendChild(c); }).observe(sbar,{childList:true}); }; tryAdd(); }
+
+  function changeMyPassword(){ gate('login'); const g=document.getElementById('authGate'); g.style.background='rgba(20,32,43,.7)';
+    g.querySelector('.card').innerHTML=`<div class="logo">ح</div><h1>تغییر رمز عبور</h1><p>${ME.email}</p><form id="cp_f"><label>رمز جدید (حداقل ۸ نویسه)</label><input id="cp_p" type="password" autocomplete="new-password" minlength="8" required><label>تکرار رمز جدید</label><input id="cp_p2" type="password" autocomplete="new-password" minlength="8" required><button type="submit">ذخیرهٔ رمز</button></form><div class="msg" id="cp_m"></div><button class="lnk" id="cp_x">انصراف</button>`;
+    g.querySelector('#cp_x').onclick=()=>g.remove();
+    g.querySelector('#cp_f').onsubmit=async e=>{ e.preventDefault(); const p=g.querySelector('#cp_p').value, m=g.querySelector('#cp_m'); if(p!==g.querySelector('#cp_p2').value){ m.textContent='دو رمز یکسان نیستند.'; return; } const {error}=await sb.auth.updateUser({password:p}); if(error){ m.textContent=faErr(error); return; } m.className='msg ok'; m.textContent='رمز عبور تغییر کرد.'; setTimeout(()=>g.remove(),1200); }; }
+  async function adminCall(body){ const {data,error}=await sb.functions.invoke('admin-users',{body}); if(error){ let msg=error.message; try{ const j=await error.context?.json?.(); if(j?.error) msg=j.error; }catch(e){} throw new Error(faAdmin(msg)); } if(data?.error) throw new Error(faAdmin(data.error)); return data; }
+  function faAdmin(m){ return ({invalid_email:'ایمیل معتبر نیست.',weak_password:'رمز باید حداقل ۸ نویسه باشد.',forbidden:'فقط مدیر کل اجازهٔ این کار را دارد.',unauthorized:'دوباره وارد شوید.',cannot_delete_self:'نمی‌توانید حساب خودتان را حذف کنید.'})[m] || (/already been registered|already registered|exists/i.test(m)?'این ایمیل قبلاً ثبت شده است.':m); }
 
   /* ---------- document database ---------- */
   const cache = {};            // col -> Map(id -> data)
@@ -146,7 +154,9 @@
   window.__members = {
     list: async()=>{ const {data,error}=await sb.from('members').select('*').order('created_at'); if(error) throw error; return data; },
     set: async(uid,patch)=>{ const {error}=await sb.from('members').update(patch).eq('uid',uid); if(error) throw mapErr(error); },
-    remove: async(uid)=>{ const {error}=await sb.from('members').delete().eq('uid',uid); if(error) throw mapErr(error); },
+    remove: async(uid)=>adminCall({action:'delete',uid}),
+    create: async(o)=>adminCall({action:'create',...o}),
+    setPassword: async(uid,password)=>adminCall({action:'password',uid,password}),
     me: ()=>ME
   };
 
