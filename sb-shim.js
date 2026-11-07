@@ -26,12 +26,12 @@
     let g = document.getElementById('authGate');
     if(!g){ const st=document.createElement('style'); st.textContent=css; document.head.appendChild(st); g=document.createElement('div'); g.id='authGate'; document.body.appendChild(g); }
     if(mode==='pending'){
-      g.innerHTML = `<div class="card"><div class="logo">ح</div><h1>${shop}</h1><p>حساب شما فعال نیست یا توسط مدیر غیرفعال شده است. برای فعال‌سازی با مدیر صرافی تماس بگیرید.</p><div class="msg">${note||''}</div><button id="ag_re">بررسی دوباره</button><button class="lnk" id="ag_out">خروج و ورود با حساب دیگر</button></div>`;
+      g.innerHTML = `<div class="card"><img src="/logo.png" alt="الحسینی" style="height:64px;width:auto;display:block;margin-bottom:12px"><h1>${shop}</h1><p>حساب شما فعال نیست یا توسط مدیر غیرفعال شده است. برای فعال‌سازی با مدیر صرافی تماس بگیرید.</p><div class="msg">${note||''}</div><button id="ag_re">بررسی دوباره</button><button class="lnk" id="ag_out">خروج و ورود با حساب دیگر</button></div>`;
       g.querySelector('#ag_re').onclick=()=>location.reload(); g.querySelector('#ag_out').onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
       return;
     }
     const signup = false, reset = mode==='reset';
-    g.innerHTML = `<div class="card"><div class="logo">ح</div><h1>${shop}</h1><p>${signup?'ثبت‌نام همکار جدید — پس از ثبت‌نام، مدیر باید حساب شما را تأیید کند.':reset?'ایمیل خود را وارد کنید تا لینک تغییر رمز برایتان ارسال شود.':'نرم‌افزار حسابداری صرافی — برای ادامه وارد شوید.'}</p>
+    g.innerHTML = `<div class="card"><img src="/logo.png" alt="الحسینی" style="height:64px;width:auto;display:block;margin-bottom:12px"><h1>${shop}</h1><p>${signup?'ثبت‌نام همکار جدید — پس از ثبت‌نام، مدیر باید حساب شما را تأیید کند.':reset?'ایمیل خود را وارد کنید تا لینک تغییر رمز برایتان ارسال شود.':'نرم‌افزار حسابداری صرافی — برای ادامه وارد شوید.'}</p>
       <form id="ag_f">${signup?'<label>نام و نام خانوادگی</label><input id="ag_n" autocomplete="name" style="direction:rtl;text-align:right">':''}
       <label>ایمیل</label><input id="ag_e" type="email" autocomplete="username" required>
       ${reset?'':`<label>رمز عبور</label><input id="ag_p" type="password" autocomplete="${signup?'new-password':'current-password'}" required minlength="6">`}
@@ -53,7 +53,7 @@
       b.disabled=false; };
   }
   function faErr(e){ const s=String(e?.message||e); if(/Invalid login/i.test(s)) return 'ایمیل یا رمز عبور اشتباه است.'; if(/Email not confirmed/i.test(s)) return 'ایمیل شما هنوز تأیید نشده؛ لینک ارسال‌شده به ایمیل را باز کنید.'; if(/already registered/i.test(s)) return 'این ایمیل قبلاً ثبت شده است؛ وارد شوید.'; if(/at least 6/i.test(s)) return 'رمز عبور باید حداقل ۶ نویسه باشد.'; if(/rate limit/i.test(s)) return 'تعداد درخواست‌ها زیاد است؛ کمی بعد دوباره امتحان کنید.'; return s; }
-  function newPasswordGate(){ gate('login'); const g=document.getElementById('authGate'); g.querySelector('.card').innerHTML=`<div class="logo">ح</div><h1>تغییر رمز عبور</h1><p>رمز جدید خود را وارد کنید.</p><form id="np_f"><label>رمز جدید</label><input id="np_p" type="password" autocomplete="new-password" minlength="6" required><button type="submit">ذخیرهٔ رمز</button></form><div class="msg" id="np_m"></div>`;
+  function newPasswordGate(){ gate('login'); const g=document.getElementById('authGate'); g.querySelector('.card').innerHTML=`<img src="/logo.png" alt="الحسینی" style="height:64px;width:auto;display:block;margin-bottom:12px"><h1>تغییر رمز عبور</h1><p>رمز جدید خود را وارد کنید.</p><form id="np_f"><label>رمز جدید</label><input id="np_p" type="password" autocomplete="new-password" minlength="6" required><button type="submit">ذخیرهٔ رمز</button></form><div class="msg" id="np_m"></div>`;
     g.querySelector('#np_f').onsubmit=async e=>{ e.preventDefault(); const {error}=await sb.auth.updateUser({password:g.querySelector('#np_p').value}); if(error){ g.querySelector('#np_m').textContent=faErr(error); return; } location.hash=''; location.reload(); }; }
 
   let ready;
@@ -85,7 +85,7 @@
     tryAdd(); }
 
   function changeMyPassword(){ gate('login'); const g=document.getElementById('authGate'); g.style.background='rgba(20,32,43,.7)';
-    g.querySelector('.card').innerHTML=`<div class="logo">ح</div><h1>تغییر رمز عبور</h1><p>${ME.email}</p><form id="cp_f"><label>رمز جدید (حداقل ۸ نویسه)</label><input id="cp_p" type="password" autocomplete="new-password" minlength="8" required><label>تکرار رمز جدید</label><input id="cp_p2" type="password" autocomplete="new-password" minlength="8" required><button type="submit">ذخیرهٔ رمز</button></form><div class="msg" id="cp_m"></div><button class="lnk" id="cp_x">انصراف</button>`;
+    g.querySelector('.card').innerHTML=`<img src="/logo.png" alt="الحسینی" style="height:64px;width:auto;display:block;margin-bottom:12px"><h1>تغییر رمز عبور</h1><p>${ME.email}</p><form id="cp_f"><label>رمز جدید (حداقل ۸ نویسه)</label><input id="cp_p" type="password" autocomplete="new-password" minlength="8" required><label>تکرار رمز جدید</label><input id="cp_p2" type="password" autocomplete="new-password" minlength="8" required><button type="submit">ذخیرهٔ رمز</button></form><div class="msg" id="cp_m"></div><button class="lnk" id="cp_x">انصراف</button>`;
     g.querySelector('#cp_x').onclick=()=>g.remove();
     g.querySelector('#cp_f').onsubmit=async e=>{ e.preventDefault(); const p=g.querySelector('#cp_p').value, m=g.querySelector('#cp_m'); if(p!==g.querySelector('#cp_p2').value){ m.textContent='دو رمز یکسان نیستند.'; return; } const {error}=await sb.auth.updateUser({password:p}); if(error){ m.textContent=faErr(error); return; } m.className='msg ok'; m.textContent='رمز عبور تغییر کرد.'; setTimeout(()=>g.remove(),1200); }; }
   async function adminCall(body){ const {data,error}=await sb.functions.invoke('admin-users',{body}); if(error){ let msg=error.message; try{ const j=await error.context?.json?.(); if(j?.error) msg=j.error; }catch(e){} throw new Error(faAdmin(msg)); } if(data?.error) throw new Error(faAdmin(data.error)); return data; }
