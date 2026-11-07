@@ -610,6 +610,22 @@ function wireCommon(root){
   root.querySelectorAll('.numin').forEach(i=>i.addEventListener('blur',()=>{ if(i.value.trim()!=='' && !i.readOnly){ const n=parseNum(i.value); i.value=enNum(n); } }));
   const d=root.querySelector('#f_date'); if(d) d.addEventListener('change',()=>{ const h=$('#f_date_h'); if(h && d.value) h.textContent=faDate(new Date(d.value+'T12:00')); });
 }
+/* live thousands separators while typing in numeric inputs (1,550,000) */
+function liveGroup(i){
+  if(i.readOnly || i.disabled) return;
+  const raw=i.value; let v=raw.replace(/[۰-۹]/g,d=>FA.indexOf(d)).replace(/[٠-٩]/g,d=>AR.indexOf(d)).replace(/[٫]/g,'.');
+  if(!/^[\s\d,٬.\-]*$/.test(v)) return;
+  const pos=i.selectionStart==null?raw.length:i.selectionStart;
+  const keep=c=>/[\d.\-]/.test(c); let before=0; for(let k=0;k<pos;k++) if(keep(v[k]||'')) before++;
+  v=v.replace(/[^\d.\-]/g,''); const neg=v.startsWith('-'); v=v.replace(/-/g,'');
+  const dot=v.indexOf('.'); let ip=dot<0?v:v.slice(0,dot), fp=dot<0?'':v.slice(dot+1).replace(/\./g,'');
+  ip=ip.replace(/^0+(?=\d)/,''); const g=ip.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  const out=(neg?'-':'')+g+(dot<0?'':'.'+fp);
+  if(out===raw) return; i.value=out;
+  let np=0, c=0; while(np<out.length && c<before){ if(keep(out[np])) c++; np++; }
+  try{ if(document.activeElement===i) i.setSelectionRange(np,np); }catch(e){}
+}
+document.addEventListener('input',e=>{ const i=e.target; if(i && i.matches && i.matches('input.numin')) liveGroup(i); },true);
 const V = id => { const e=$('#'+id); if(!e) return ''; return e.type==='checkbox' ? e.checked : e.value; };
 const N = id => parseNum(V(id));
 function collectF(){ const o={}; $$('#vform input[id^="f_"],#vform select[id^="f_"],#vform textarea[id^="f_"]').forEach(e=>{ o[e.id] = e.type==='checkbox' ? e.checked : e.value; }); return o; }
