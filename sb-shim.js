@@ -71,8 +71,18 @@
     addLogout();
     return true;
   }
-  function addLogout(){ const tryAdd=()=>{ const sbar=document.querySelector('.statusbar .wrap'); if(!sbar){ setTimeout(tryAdd,500); return; } if(document.getElementById('sbOut')) return; const b=document.createElement('button'); b.id='sbOut'; b.className='btn sm'; b.style.marginInlineStart='8px'; b.textContent='خروج ('+ (ME.member?.name||ME.email) +')'; b.onclick=async()=>{ await sb.auth.signOut(); location.reload(); }; sbar.appendChild(b);
-    const c=document.createElement('button'); c.id='sbPw'; c.className='btn sm'; c.style.marginInlineStart='6px'; c.textContent='تغییر رمز'; c.onclick=changeMyPassword; sbar.appendChild(c); new MutationObserver(()=>{ if(!document.getElementById('sbOut')) sbar.appendChild(b); if(!document.getElementById('sbPw')) sbar.appendChild(c); }).observe(sbar,{childList:true}); }; tryAdd(); }
+  async function doSignOut(){ try{ await Promise.race([sb.auth.signOut({scope:'local'}), new Promise(r=>setTimeout(r,2500))]); }catch(e){}
+    try{ Object.keys(localStorage).filter(k=>/^sb-.*-auth-token/.test(k)).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+    location.replace(location.pathname); }
+  window.__signOut=doSignOut;
+  function addLogout(){ const tryAdd=()=>{ const foot=document.querySelector('footer.statusbar'); if(!foot){ setTimeout(tryAdd,500); return; } if(document.getElementById('acctBar')) return;
+      const bar=document.createElement('div'); bar.id='acctBar'; bar.className='wrap'; bar.style.cssText='display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;padding:4px 16px 8px';
+      bar.innerHTML=`<span style="font-size:12px;opacity:.8;margin-inline-end:auto">${(ME.member?.name||ME.email).replace(/[<>&"]/g,'')}</span><button type="button" id="sbPw" class="btn sm" style="background:transparent;color:inherit;border-color:rgba(255,255,255,.35)">تغییر رمز</button><button type="button" id="sbOut" class="btn sm" style="background:#b42318;color:#fff;border-color:#b42318;min-height:36px;padding:6px 14px">خروج از حساب</button>`;
+      foot.appendChild(bar);
+      const out=bar.querySelector('#sbOut'); let busy=false; const go=e=>{ e.preventDefault(); if(busy) return; busy=true; out.textContent='در حال خروج…'; doSignOut(); };
+      out.addEventListener('click',go); out.addEventListener('touchend',go,{passive:false});
+      bar.querySelector('#sbPw').addEventListener('click',changeMyPassword); };
+    tryAdd(); }
 
   function changeMyPassword(){ gate('login'); const g=document.getElementById('authGate'); g.style.background='rgba(20,32,43,.7)';
     g.querySelector('.card').innerHTML=`<div class="logo">ح</div><h1>تغییر رمز عبور</h1><p>${ME.email}</p><form id="cp_f"><label>رمز جدید (حداقل ۸ نویسه)</label><input id="cp_p" type="password" autocomplete="new-password" minlength="8" required><label>تکرار رمز جدید</label><input id="cp_p2" type="password" autocomplete="new-password" minlength="8" required><button type="submit">ذخیرهٔ رمز</button></form><div class="msg" id="cp_m"></div><button class="lnk" id="cp_x">انصراف</button>`;

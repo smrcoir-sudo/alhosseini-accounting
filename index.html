@@ -4327,7 +4327,7 @@ function normSettings(d){
   s.stages=Array.isArray(d.stages)&&d.stages.length?d.stages:clone(DEFAULTS.stages); s.fy=Array.isArray(d.fy)?d.fy:[];
   return s;
 }
-let rT=null; function scheduleRender(){ clearTimeout(rT); rT=setTimeout(()=>{ recompute(); if(S.page!=='new' && S.page!=='settings') render(); else { renderStatus(); renderBadges(); $('#shopName').textContent=S.settings.shop; } },60); }
+let rT=null; function scheduleRender(){ clearTimeout(rT); rT=setTimeout(()=>{ recompute(); try{ if(!$('#qbar')?.children.length || $('#qbarw')?.hidden) renderQbar(); }catch(e){} if(S.page!=='new' && S.page!=='settings') render(); else { renderStatus(); renderBadges(); $('#shopName').textContent=S.settings.shop; } },60); }
 async function boot(){
   recompute(); go(location.hash.slice(1)||'dash');
   if(!window.claude?.use){ setStatus(false,'آفلاین'); notice('این صفحه باید داخل Claude باز شود تا اطلاعات ذخیره و بین همکاران مشترک شود.'); return; }
