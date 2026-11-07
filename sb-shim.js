@@ -11,7 +11,11 @@
   #authGate .card{background:#fff;color:#14202b;border-radius:16px;padding:28px 24px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
   #authGate h1{margin:0 0 4px;font-size:22px} #authGate p{margin:0 0 18px;color:#5b6977;font-size:14px;line-height:1.8}
   #authGate label{display:block;font-size:13px;font-weight:600;margin:12px 0 6px}
-  #authGate input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #d9e0e6;border-radius:10px;font:inherit;font-size:15px;direction:ltr;text-align:left}
+  #authGate{color-scheme:light}
+  #authGate input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #b9c4cf!important;border-radius:10px;font:inherit;font-size:16px;direction:ltr;text-align:left;background:#ffffff!important;color:#14202b!important;-webkit-text-fill-color:#14202b;caret-color:#14202b;box-shadow:none!important;outline:none}
+  #authGate input:focus{border-color:#9a6a1c!important;box-shadow:0 0 0 3px rgba(154,106,28,.18)!important}
+  #authGate input:-webkit-autofill,#authGate input:-webkit-autofill:hover,#authGate input:-webkit-autofill:focus{-webkit-box-shadow:0 0 0 1000px #ffffff inset!important;-webkit-text-fill-color:#14202b!important}
+  #authGate label{color:#14202b}
   #authGate button{width:100%;margin-top:18px;padding:12px;border:0;border-radius:10px;background:#9a6a1c;color:#fff;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
   #authGate button[disabled]{opacity:.6}
   #authGate .lnk{background:none;color:#9a6a1c;margin-top:10px;padding:6px;font-weight:600}
