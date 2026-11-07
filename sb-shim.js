@@ -77,11 +77,13 @@
   window.__signOut=doSignOut;
   function addLogout(){ const tryAdd=()=>{ const foot=document.querySelector('footer.statusbar'); if(!foot){ setTimeout(tryAdd,500); return; } if(document.getElementById('acctBar')) return;
       const bar=document.createElement('div'); bar.id='acctBar'; bar.className='wrap'; bar.style.cssText='display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;padding:4px 16px 8px';
-      bar.innerHTML=`<span style="font-size:12px;opacity:.8;margin-inline-end:auto">${(ME.member?.name||ME.email).replace(/[<>&"]/g,'')}</span><button type="button" id="sbPw" class="btn sm" style="background:transparent;color:inherit;border-color:rgba(255,255,255,.35)">تغییر رمز</button><button type="button" id="sbOut" class="btn sm" style="background:#b42318;color:#fff;border-color:#b42318;min-height:36px;padding:6px 14px">خروج از حساب</button>`;
+      bar.innerHTML=`<span style="font-size:12px;opacity:.8;margin-inline-end:auto">${(ME.member?.name||ME.email).replace(/[<>&"]/g,'')}</span><button type="button" id="sbSync" class="btn sm" style="background:transparent;color:inherit;border-color:rgba(255,255,255,.35);display:inline-flex;align-items:center;gap:6px"><span id="syncDot" style="width:9px;height:9px;border-radius:50%;background:#e0a33a;display:inline-block"></span>بروزرسانی</button><button type="button" id="sbPw" class="btn sm" style="background:transparent;color:inherit;border-color:rgba(255,255,255,.35)">تغییر رمز</button><button type="button" id="sbOut" class="btn sm" style="background:#b42318;color:#fff;border-color:#b42318;min-height:36px;padding:6px 14px">خروج از حساب</button>`;
       foot.appendChild(bar);
       const out=bar.querySelector('#sbOut'); let busy=false; const go=e=>{ e.preventDefault(); if(busy) return; busy=true; out.textContent='در حال خروج…'; doSignOut(); };
       out.addEventListener('click',go); out.addEventListener('touchend',go,{passive:false});
-      bar.querySelector('#sbPw').addEventListener('click',changeMyPassword); };
+      bar.querySelector('#sbPw').addEventListener('click',changeMyPassword);
+      const sy=bar.querySelector('#sbSync'); sy.addEventListener('click',async()=>{ sy.disabled=true; await fullResync(); if(!channelOk){ retryN=0; scheduleReconnect(); } sy.disabled=false; try{ toast('اطلاعات به‌روز شد'); }catch(e){} });
+      setLive(live.state); };
     tryAdd(); }
 
   function changeMyPassword(){ gate('login'); const g=document.getElementById('authGate'); g.style.background='rgba(20,32,43,.7)';
@@ -99,11 +101,14 @@
   const clone = o => o==null ? o : JSON.parse(JSON.stringify(o));
   const mkDoc = (col,id) => { const d=cache[col]?.get(id); return { id, exists: d!==undefined, data: () => clone(d) }; };
   const split = p => { const i=p.indexOf('/'); return [p.slice(0,i), p.slice(i+1)]; };
+  let lastTs = '1970-01-01T00:00:00Z';
+  const bump = t => { if(t && t > lastTs) lastTs = t; };
+  async function fetchCol(col){ const rows=new Map(); let from=0; const step=1000;
+    for(;;){ const {data,error}=await sb.from('docs').select('id,data,updated_at').eq('col',col).order('id').range(from,from+step-1); if(error) throw error; data.forEach(r=>{ rows.set(r.id,r.data); bump(r.updated_at); }); if(data.length<step) break; from+=step; }
+    return rows; }
   async function loadCol(col){
     if(loaded[col]) return loaded[col];
-    loaded[col] = (async()=>{ const map=cache[col]||(cache[col]=new Map()); let from=0; const step=1000;
-      for(;;){ const {data,error}=await sb.from('docs').select('id,data').eq('col',col).range(from,from+step-1); if(error) throw error; data.forEach(r=>map.set(r.id,r.data)); if(data.length<step) break; from+=step; }
-    })();
+    loaded[col] = (async()=>{ const rows=await fetchCol(col); const map=cache[col]||(cache[col]=new Map()); rows.forEach((v,k)=>map.set(k,v)); })();
     return loaded[col];
   }
   const pend = new Set(); let pT=null;
@@ -113,10 +118,37 @@
     cols.forEach(c=>(colL[c]||[]).forEach(fn=>{ try{ fn(colSnap(c)); }catch(e){ console.error(e); } })); }
   function colSnap(col){ const map=cache[col]||new Map(); const docs=[...map.keys()].map(id=>mkDoc(col,id)); return { docs, size:docs.length, empty:!docs.length, metadata:{fromCache:false}, forEach:fn=>docs.forEach(fn) }; }
   function local(col,id,data){ const map=cache[col]||(cache[col]=new Map()); if(data===undefined) map.delete(id); else map.set(id,clone(data)); emit(col,id); }
-  let channel=null;
-  function ensureChannel(){ if(channel) return; channel = sb.channel('docs-all').on('postgres_changes',{event:'*',schema:'public',table:'docs'},p=>{
-      const row=p.new&&Object.keys(p.new).length?p.new:p.old; if(!row) return; const col=row.col, id=row.id; if(!cache[col]) return;
-      if(p.eventType==='DELETE') local(col,id,undefined); else local(col,id,p.new.data); }).subscribe(st=>{ if(st==='CHANNEL_ERROR'||st==='TIMED_OUT') console.warn('realtime',st); }); }
+  /* ---- live sync: realtime channel + safety nets (reconnect, catch-up, manual refresh) ---- */
+  const live = { state:'connecting', at:Date.now() };
+  function setLive(st){ live.state=st; live.at=Date.now(); const d=document.getElementById('syncDot'); if(d){ d.style.background = st==='live'?'#2bb673':st==='syncing'?'#e0a33a':'#d64545'; d.title = st==='live'?'اتصال زنده برقرار است':st==='syncing'?'در حال همگام‌سازی…':'اتصال زنده قطع است؛ هر چند ثانیه به‌روز می‌شود'; } }
+  async function catchUp(){ const cols=Object.keys(loaded); if(!cols.length) return;
+    try{ const {data,error}=await sb.from('docs').select('col,id,data,updated_at').in('col',cols).gt('updated_at',lastTs).order('updated_at').limit(1000);
+      if(error) return; data.forEach(r=>{ bump(r.updated_at); const cur=cache[r.col]?.get(r.id); if(JSON.stringify(cur)!==JSON.stringify(r.data)) local(r.col,r.id,r.data); }); }catch(e){} }
+  let resyncing=false;
+  async function fullResync(){ if(resyncing) return; resyncing=true; const prev=live.state; setLive('syncing');
+    try{ for(const col of Object.keys(loaded)){ const rows=await fetchCol(col); const map=cache[col]||(cache[col]=new Map());
+        [...map.keys()].forEach(id=>{ if(!rows.has(id)){ map.delete(id); emit(col,id); } });
+        rows.forEach((v,id)=>{ if(JSON.stringify(map.get(id))!==JSON.stringify(v)){ map.set(id,v); emit(col,id); } }); } }
+    catch(e){ console.warn('resync',e); }
+    resyncing=false; setLive(channelOk?'live':(prev==='syncing'?'down':prev)); }
+  window.__resync = fullResync;
+  let channel=null, channelOk=false, retryT=null, retryN=0;
+  function ensureChannel(){ if(channel) return;
+    channel = sb.channel('docs-all-'+Date.now()).on('postgres_changes',{event:'*',schema:'public',table:'docs'},p=>{
+      const row=p.new&&Object.keys(p.new).length?p.new:p.old; if(!row) return; bump(p.new?.updated_at); const col=row.col, id=row.id; if(!cache[col]) return;
+      if(p.eventType==='DELETE') local(col,id,undefined); else local(col,id,p.new.data); })
+    .subscribe(st=>{
+      if(st==='SUBSCRIBED'){ const wasDown=!channelOk && retryN>0; channelOk=true; retryN=0; setLive('live'); if(wasDown) catchUp(); }
+      else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'||st==='CLOSED'){ channelOk=false; setLive('down'); scheduleReconnect(); } }); }
+  function scheduleReconnect(){ clearTimeout(retryT); const wait=Math.min(30000, 1500*Math.pow(2,retryN++)); retryT=setTimeout(()=>{ const old=channel; channel=null; if(old) sb.removeChannel(old).catch(()=>{}); ensureChannel(); }, wait); }
+  setInterval(()=>{ if(document.visibilityState==='visible') catchUp(); }, 10000);
+  setInterval(()=>{ if(document.visibilityState==='visible') fullResync(); }, 5*60*1000);
+  let hiddenAt=0;
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'){ hiddenAt=Date.now(); return; }
+    if(!Object.keys(loaded).length) return; if(Date.now()-hiddenAt>15000) fullResync(); else catchUp();
+    if(!channelOk){ retryN=0; scheduleReconnect(); } });
+  window.addEventListener('online',()=>{ if(!Object.keys(loaded).length) return; retryN=0; scheduleReconnect(); fullResync(); });
+  window.addEventListener('focus',()=>{ if(Object.keys(loaded).length) catchUp(); });
   const strip = o => JSON.parse(JSON.stringify(o??{}));
   function docRef(col,id){
     return {
