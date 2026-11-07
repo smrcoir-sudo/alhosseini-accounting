@@ -931,7 +931,7 @@ T.expense = {
 /* ---- opening balance ---- */
 T.opening = {
   form(p){ return `
-    ${H.field('f_acc','حساب',H.acc('f_acc',['cash','bank','vault','carrier'].concat(PARTY2),p.party||'CASH1'),{wide:1})}
+    ${H.field('f_acc','حساب',H.acc('f_acc',['cash','bank','vault','carrier'].concat(PARTY2,['expense','income']),p.party||'CASH1'),{wide:1})}
     ${H.field('f_cur','ارز',H.select('f_cur',curOpts(),base()))}
     ${H.field('f_amt','مبلغ',H.input('f_amt','',{num:1,ph:'0'}))}
     ${H.field('f_side','نوع مانده',H.select('f_side',[['dr','بدهکار / موجودی (صندوق، بانک یا طلب از مشتری)'],['cr','بستانکار (بدهی ما به مشتری)']],'dr'))}
