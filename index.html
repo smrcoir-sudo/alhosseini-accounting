@@ -234,13 +234,22 @@ textarea{min-height:64px;resize:vertical}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sttab td{border-color:#2a3640}:root:not([data-theme="light"]) .sttab th,:root:not([data-theme="light"]) .sttab tfoot td{background:#1b2630;color:#cfd8e0}:root:not([data-theme="light"]) .sttab tr.stdr td{color:#ff7070}:root:not([data-theme="light"]) .sttab tr.stcr td{color:#5fd27a}}
 @media print{body.stprint *{visibility:hidden}body.stprint .stcard.stp,body.stprint .stcard.stp *{visibility:visible}body.stprint .stcard.stp{position:absolute;top:0;left:0;right:0;box-shadow:none}}
 @media (max-width:560px){.stcard{margin:6px -6px}.sttab td{font-size:16px;padding:9px 6px}.sthead,.stdate{padding-inline:10px}}
+.topr{display:flex;align-items:center;gap:10px}.mnav-btn{display:none;flex-direction:column;justify-content:center;gap:5px;width:42px;height:38px;padding:0 9px;border:1px solid rgba(255,255,255,.25);border-radius:9px;background:rgba(255,255,255,.06);cursor:pointer}.mnav-btn span{display:block;height:2px;border-radius:2px;background:var(--head-ink,#fff)}
+#mdrawer{position:fixed;inset:0;z-index:60}#mdrawer .mdback{position:absolute;inset:0;background:rgba(0,0,0,.45)}#mdrawer .mdpanel{position:absolute;top:0;bottom:0;inset-inline-start:0;width:min(88vw,380px);background:var(--bg);overflow-y:auto;box-shadow:0 0 30px rgba(0,0,0,.35);padding-bottom:env(safe-area-inset-bottom,0px);animation:mdin .18s ease-out}
+@keyframes mdin{from{transform:translateX(30px);opacity:.4}to{transform:none;opacity:1}}
+.mdhead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--head);color:var(--head-ink,#fff);position:sticky;top:0;z-index:20}.mdx{background:none;border:0;color:inherit;font-size:20px;cursor:pointer;padding:2px 8px}
+.mdsec{padding:8px 10px;border-bottom:1px solid var(--line)}.mdt{font-size:12px;color:var(--muted);font-weight:700;padding:2px 4px 6px}
+#mdrawer #tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;overflow:visible;padding:0;margin:0;max-width:none}#mdrawer .tab{color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 8px;text-align:start;white-space:normal}#mdrawer .tab.on,#mdrawer .tab[aria-current="page"]{border-color:var(--accent,#c58b2a);box-shadow:inset 0 0 0 1px var(--accent,#c58b2a)}
+#mdrawer .qbarw{background:none;border:0;display:block!important}#mdrawer .qbar{padding:0;max-width:none}#mdrawer .qbrow{flex-wrap:wrap!important;overflow:visible!important}#mdrawer .qbmenu{position:static;width:100%;flex-basis:100%;max-height:none;box-shadow:none;margin:4px 0}
+#mdrawer footer.statusbar{position:static;display:block!important;background:none;color:var(--ink);font-size:13px}#mdrawer .statusbar *{color:var(--ink)}#mdrawer .sb-btn{border-color:var(--line);background:var(--panel);padding:4px 12px}#mdrawer .qbx{display:none}#mdrawer .qbrow{gap:6px}#mdrawer .qb{background:var(--panel);border:1px solid var(--line);border-radius:8px}#mdrawer #sbar,#mdrawer #acctBar{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0!important;justify-content:flex-start!important;max-width:none}#mdrawer .statusbar .opt{display:inline!important}
+@media (max-width:760px){.mnav-btn{display:inline-flex}header.top>#tabs,header.top>.qbarw,footer.statusbar{display:none!important}.topr #statusText{display:none}.topin{padding-block:8px}.brand .mark{width:34px;height:34px}}
 </style>
 
 <div id="app" dir="rtl" lang="fa">
   <header class="top">
     <div class="wrap topin">
       <div class="brand"><img src="/logo.png" alt="الحسینی" class="hlogo" width="30" height="54"><div><h1 id="shopName">دفتر صرافی</h1><small>حسابداری صرافی: خرید و فروش ارز، حواله، چک، بانک و حساب مشتریان</small></div></div>
-      <div class="status"><span class="dot" id="dot"></span><span id="statusText">در حال اتصال…</span></div>
+      <div class="topr"><div class="status"><span class="dot" id="dot"></span><span id="statusText">در حال اتصال…</span></div><button type="button" class="mnav-btn" id="mnavBtn" aria-label="منو" aria-expanded="false"><span></span><span></span><span></span></button></div>
     </div>
     <nav class="tabs wrap" id="tabs">
       <button class="tab" data-p="dash">داشبورد</button>
@@ -278,6 +287,7 @@ textarea{min-height:64px;resize:vertical}
     <section class="page" id="p-tms" hidden></section>
   </main>
   <footer class="statusbar"><div class="wrap" id="sbar"></div></footer>
+  <div id="mdrawer" hidden><div class="mdback" data-mdclose></div><aside class="mdpanel" role="dialog" aria-label="منو"><div class="mdhead"><b>منو</b><button type="button" class="mdx" data-mdclose aria-label="بستن">✕</button></div><div class="mdsec"><div class="mdt">بخش‌ها</div><div id="md_pages"></div></div><div class="mdsec"><div class="mdt">منوها و میانبرها</div><div id="md_q"></div></div><div class="mdsec"><div class="mdt">حساب کاربری و وضعیت</div><div id="md_foot"></div></div></aside></div>
   <div class="modal" id="modal" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
   <div class="toast" id="toast" hidden></div>
 </div>
@@ -4461,7 +4471,7 @@ function renderQbar(){ const bar=$('#qbar'); if(!bar) return; if(!S.uid&&!S.db){
   bar.innerHTML=`<div class="qbrow menus">${MENUS.map(([k,l])=>`<button type="button" class="qb qbm" data-hm="${k}" aria-haspopup="true">${l} ▾</button>`).join('')}</div><div class="qbrow" id="qbs2">${ks.map((k,i)=>`<button type="button" class="qb" data-qb="${k}" title="${esc(SC[k][0])}${i<9?' (Alt+'+(i+1)+')':''}"><span class="ic" aria-hidden="true">${SC[k][3]||'•'}</span>${esc(SC[k][0])}${i<9?`<kbd>${i+1}</kbd>`:''}</button>`).join('')}<button type="button" class="qbx" id="qbx" aria-label="موارد بیشتر و تنظیم میانبرها" title="موارد بیشتر / تنظیم">«</button></div>`;
   $('#qbmenu')?.remove();
   const row=$('#qbs2'), btns=[...row.querySelectorAll('[data-qb]')], more=$('#qbx'); const lim=row.clientWidth-more.offsetWidth-8; let w=0; const hidden=[];
-  btns.forEach(b=>{ w+=b.offsetWidth+2; if(w>lim){ hidden.push(b.dataset.qb); b.remove(); } });
+  if(!bar.closest('#mdrawer')) btns.forEach(b=>{ w+=b.offsetWidth+2; if(w>lim){ hidden.push(b.dataset.qb); b.remove(); } });
   bar.onclick=e=>{ const h=e.target.closest('[data-hm]'); if(h){ e.stopPropagation(); hmMenu(h); return; } const b=e.target.closest('[data-qb]'); if(b){ $('#qbmenu')?.remove(); closeModal(); SC[b.dataset.qb][1](); } };
   more.onclick=e=>{ e.stopPropagation(); if($('#qbmenu')&&!$('#qbmenu').dataset.hm){ $('#qbmenu').remove(); return; } $('#qbmenu')?.remove();
     const m=document.createElement('div'); m.id='qbmenu'; m.className='qbmenu'; m.innerHTML=hidden.map(k=>`<button type="button" class="qb" data-qb="${k}"><span class="ic" aria-hidden="true">${SC[k][3]||'•'}</span>${esc(SC[k][0])}</button>`).join('')+`${hidden.length?'<hr style="border:0;border-top:1px solid var(--line);margin:4px 0;width:100%">':''}<button type="button" class="qb" id="qbcfg">⚙ تنظیم نوار میانبر…</button>`;
@@ -4495,7 +4505,7 @@ Object.assign(HM,{
 function hmMenu(h){ const was=$('#qbmenu')?.dataset.hm; $('#qbmenu')?.remove(); if(was===h.dataset.hm) return;
   const ok=it=>!it[2]||S.isAdmin||can(it[2]); const items=HM[h.dataset.hm].filter(it=>it==='-'||ok(it)); const fns=[];
   const html=items.map((it,i)=>{ if(it==='-') return '<hr style="border:0;border-top:1px solid var(--line);margin:4px 0;width:100%">'; if(Array.isArray(it[1])) return `<div class="mini" style="padding:8px 12px 2px;font-weight:700">${esc(it[0])} ◂</div>`+it[1].map(sub=>{ fns.push(sub[1]); return `<button type="button" class="qb" data-hf="${fns.length-1}" style="padding-inline-start:26px">${esc(sub[0])}</button>`; }).join(''); fns.push(it[1]); return `<button type="button" class="qb" data-hf="${fns.length-1}">${esc(it[0])}</button>`; }).join('').replace(/^(<hr[^>]*>)+|(<hr[^>]*>)+$/g,'');
-  const m=document.createElement('div'); m.id='qbmenu'; m.className='qbmenu'; m.dataset.hm=h.dataset.hm; m.style.insetInlineEnd='auto'; m.style.insetInlineStart=Math.max(8,($('#qbarw').getBoundingClientRect().right-h.getBoundingClientRect().right))+'px'; m.innerHTML=html; $('#qbarw').appendChild(m);
+  const m=document.createElement('div'); m.id='qbmenu'; m.className='qbmenu'; m.dataset.hm=h.dataset.hm; m.style.insetInlineEnd='auto'; m.style.insetInlineStart=Math.max(8,($('#qbarw').getBoundingClientRect().right-h.getBoundingClientRect().right))+'px'; m.innerHTML=html; if(h.closest('#mdrawer')){ m.style.insetInlineStart=''; h.after(m); } else $('#qbarw').appendChild(m);
   m.onclick=ev=>{ const b=ev.target.closest('[data-hf]'); if(b){ m.remove(); closeModal(); fns[+b.dataset.hf](); } }; }
 /* quick account balance (مانده حساب) */
 function balDialog(id){ const accs=[...ACC.values()].filter(a=>!a.sys&&canSeeAcc(a)&&a.active!==false); const draw=()=>{ const a=acc($('#bd_a').value); const hz=$('#bd_z').checked; if(!a){ $('#bd_t').innerHTML='<span class="mini">حساب را انتخاب کنید.</span>'; return; }
@@ -4671,6 +4681,26 @@ RPT.accstatus=()=>{ const f=S.asF||(S.asF={acc:'',to:''});
    <div id="as_out"></div></div>`; };
 RPT.accstatus_wire=()=>{ wireCommon($('#p-report')); const f=S.asF; const draw=()=>{ const o=$('#as_out'); if(!o) return; if(f.acc&&acc(f.acc)){ o.innerHTML=accStatusHTML(f.acc,f.to)+stBtns(); accStatusWire(f.acc,()=>f.to,o); } else o.innerHTML=emptyState('یک حساب انتخاب کنید','با تایپ نام، کد یا تلفن جستجو کنید.'); };
   $('#as_acc').addEventListener('change',e=>{ f.acc=e.target.value; draw(); }); const aq=document.querySelector('.accq[data-for="as_acc"]'); if(aq) aq.addEventListener('input',()=>{ const sel=$('#as_acc'); const real=[...sel.options].filter(o=>o.value); if(!sel.value&&real.length===1){ sel.value=real[0].value; f.acc=sel.value; draw(); } }); $('#as_to').onchange=e=>{ f.to=e.target.value; draw(); }; draw(); };
+
+
+/* =================== mobile hamburger drawer =================== */
+(function(){ const D=()=>document.getElementById('mdrawer'); let homes=null;
+  const isOpen=()=>D()&&!D().hidden;
+  window.mdOpen=()=>{ const d=D(); if(!d||isOpen()) return; const tabs=$('#tabs'), qw=$('#qbarw'), ft=document.querySelector('footer.statusbar');
+    homes={tabs:[tabs.parentNode,tabs.nextSibling], qw:[qw.parentNode,qw.nextSibling], ft:ft?[ft.parentNode,ft.nextSibling]:null};
+    $('#md_pages').appendChild(tabs); $('#md_q').appendChild(qw); if(ft) $('#md_foot').appendChild(ft);
+    d.hidden=false; try{ renderQbar(); }catch(e){} $('#mnavBtn')?.setAttribute('aria-expanded','true'); document.body.style.overflow='hidden'; };
+  window.mdClose=()=>{ const d=D(); if(!d||!isOpen()) return; $('#qbmenu')?.remove();
+    const put=(el,h)=>{ if(el&&h) h[0].insertBefore(el, h[1]&&h[1].parentNode===h[0]?h[1]:null); };
+    put($('#tabs'),homes?.tabs); put($('#qbarw'),homes?.qw); put(document.querySelector('#mdrawer footer.statusbar'),homes?.ft);
+    d.hidden=true; $('#mnavBtn')?.setAttribute('aria-expanded','false'); document.body.style.overflow=''; try{ renderQbar(); }catch(e){} };
+  document.addEventListener('click',e=>{ if(e.target.closest('#mnavBtn')){ isOpen()?mdClose():mdOpen(); return; }
+    if(!isOpen()) return; if(e.target.closest('[data-mdclose]')){ mdClose(); return; }
+    const b=e.target.closest('#mdrawer button, #mdrawer a'); if(!b) return;
+    if(b.matches('.qbm,[data-hm]')) return; /* menu toggles stay open */
+    setTimeout(mdClose,0); }, true);
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&isOpen()) mdClose(); });
+  const mq=matchMedia('(max-width:760px)'); (mq.addEventListener?mq.addEventListener('change',()=>{ if(!mq.matches) mdClose(); }):mq.addListener(()=>{ if(!mq.matches) mdClose(); })); })();
 
 </script>
 
