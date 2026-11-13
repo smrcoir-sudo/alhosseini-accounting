@@ -684,13 +684,13 @@ const OPS = [['*','×'],['/','÷']];
 const T = {};
 /* ---- exchange ---- */
 T.exchange = {
-  form(p){ const s=p.side||'buy'; const fx=base();
+  form(p){ const s=p.side||'buy'; const LP=lastPair(); const fx=(p.x&&curRow(p.x)?p.x:null)||(LP.x&&curRow(LP.x)?LP.x:null)||base(); const fy=(p.y&&curRow(p.y)?p.y:null)||(LP.y&&curRow(LP.y)&&LP.y!==fx?LP.y:null)||(S.settings.currencies.find(c=>c.code!==base())||{}).code||base();
     return `<input type="hidden" id="f_side" value="${s}">
     <div class="field wide"><div class="seg big" id="sideSeg"><button type="button" class="buy" data-v="buy" aria-pressed="${s==='buy'}">خرید ارز از مشتری (F7)</button><button type="button" class="sell" data-v="sell" aria-pressed="${s==='sell'}">فروش ارز به مشتری (F8)</button></div></div>
     ${H.field('f_party','طرف حساب',H.acc('f_party',['customer','agent'],p.party||'WALKIN'),{wide:1})}
     ${H.field('f_x','ارز معامله',H.select('f_x',curOpts(),fx))}
     ${H.field('f_xa','مبلغ ارز',H.input('f_xa','',{num:1,ph:'0'}))}
-    ${H.field('f_y','در مقابل',H.select('f_y',curOpts(),(S.settings.currencies.find(c=>c.code!==base())||{}).code||base()))}
+    ${H.field('f_y','در مقابل',H.select('f_y',curOpts(),fy))}
     ${H.field('f_rate','نرخ',`<div class="ratebox">${H.select('f_op',OPS,'*')}${H.input('f_rate','',{num:1})}</div>`,{help:''})}
     ${H.field('f_ya','مبلغ مقابل',H.input('f_ya','',{num:1,ph:'0'}),{help:'با تغییر این مبلغ نرخ خودکار محاسبه می‌شود'})}
     ${H.field('f_comm','کارمزد (+) / تخفیف (−)',H.input('f_comm','',{num:1,ph:'0'}),{help:'به ارز مقابل'})}${H.field('f_commp','کارمزد / تخفیف (٪)',H.input('f_commp','',{num:1,ph:'0'}),{help:'درصد از مبلغ مقابل؛ کارمزد را خودکار پر می‌کند'})}
@@ -1107,6 +1107,7 @@ async function submitVoucher(e){
     if(r.meta?.envRef && !S.editing){ try{ await S.db.doc('vouchers/'+r.meta.envRef).update({meta:{envClosed:v.id}}); }catch(e){} }
     if(r.post) { try{ await r.post(v); }catch(e){} }
     logAct(S.editing?'edit':'add', (S.editing?'ویرایش ':'ثبت ')+typeLabel(v)+' '+v.no, v.id);
+    if(v.type==='exchange' && !S.editing && v.meta?.x){ try{ localStorage.setItem('sarrafi_lastpair_'+(S.uid||''),JSON.stringify({x:v.meta.x,y:v.meta.y})); }catch(e){} S.lastPair={x:v.meta.x,y:v.meta.y}; }
     const wasEdit=!!S.editing; S.editing=null; S.limitOk=false;
     toast(wasEdit?'تغییرات ذخیره شد':'سند ثبت شد');
     const again=$('#f_again')?.checked; try{ localStorage.setItem('sarrafi_again',again?'1':'0'); }catch(e){}
@@ -1114,6 +1115,7 @@ async function submitVoucher(e){
   }catch(err){ writeErr(err); }
   finally{ const b=$('#saveBtn'); if(b) b.disabled=false; }
 }
+function lastPair(){ if(S.lastPair) return S.lastPair; try{ return JSON.parse(localStorage.getItem('sarrafi_lastpair_'+(S.uid||''))||'{}')||{}; }catch(e){ return {}; } }
 function upsertLocal(v){ const i=S.vouchers.findIndex(x=>x.id===v.id); if(i>=0) S.vouchers[i]=v; else S.vouchers.unshift(v); S.vouchers.sort((a,b)=>b.ts-a.ts||b.createdAt-a.createdAt); recompute(); }
 async function nextSeq(field){
   const ref=S.db.doc('counters/main');
