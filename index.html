@@ -254,12 +254,13 @@ textarea{min-height:64px;resize:vertical}
 .ebig-i{font-size:34px;line-height:1}.ebig-t{font-size:18px;font-weight:800}.ebig-s{font-size:12px;color:var(--muted)}.ebig:nth-child(1){border-top:4px solid #2e7d32}.ebig:nth-child(2){border-top:4px solid #1565c0}.ebig:nth-child(3){border-top:4px solid #c58b2a}
 .ecash h2{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ectab td{font-size:15px}
 @media (max-width:560px){.ebigs{gap:8px}.ebig{padding:16px 4px}.ebig-i{font-size:28px}.ebig-t{font-size:14px}.ebig-s{display:none}}
+[data-brandhome]{cursor:pointer;-webkit-tap-highlight-color:transparent}[data-brandhome]:active{opacity:.75}
 </style>
 
 <div id="app" dir="rtl" lang="fa">
   <header class="top">
     <div class="wrap topin">
-      <div class="brand"><img src="/logo.png" alt="الحسینی" class="hlogo" width="30" height="54"><div><h1 id="shopName">دفتر صرافی</h1><small>حسابداری صرافی: خرید و فروش ارز، حواله، چک، بانک و حساب مشتریان</small></div></div>
+      <div class="brand" role="link" tabindex="0" title="داشبورد" data-brandhome><img src="/logo.png" alt="الحسینی" class="hlogo" width="30" height="54"><div><h1 id="shopName">دفتر صرافی</h1><small>حسابداری صرافی: خرید و فروش ارز، حواله، چک، بانک و حساب مشتریان</small></div></div>
       <div class="topr"><div class="status"><span class="dot" id="dot"></span><span id="statusText">در حال اتصال…</span></div><button type="button" class="mnav-btn" id="mnavBtn" aria-label="منو" aria-expanded="false"><span></span><span></span><span></span></button></div>
     </div>
     <nav class="tabs wrap" id="tabs">
@@ -4816,6 +4817,11 @@ function empDashTop(prof,todays){ const cid=myCash(); const ca=acc(cid); const t
     ${curs.map(c=>{ const x=bal[c]||0; return `<tr><td class="ltr" style="text-align:start"><span class="stfl">${curFlag(c)||''}</span> ${esc(c)}</td><td class="r num ltr ${x<0?'neg':''}" style="font-weight:700">${fmtBal(x,c)}</td><td class="r num ltr pos">${tin[c]?fmtBal(tin[c],c):'—'}</td><td class="r num ltr neg">${tout[c]?fmtBal(tout[c],c):'—'}</td></tr>`; }).join('')}
     </tbody></table></div>`):''}
   </div>`; }
+
+
+/* brand (logo + shop name) → dashboard */
+document.addEventListener('click',e=>{ if(!e.target.closest('[data-brandhome]')) return; try{ window.mdClose&&mdClose(); closeModal&&closeModal(); }catch(_){} go('dash'); scrollTo({top:0,behavior:'smooth'}); });
+document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-brandhome]')){ e.preventDefault(); go('dash'); } });
 
 </script>
 
