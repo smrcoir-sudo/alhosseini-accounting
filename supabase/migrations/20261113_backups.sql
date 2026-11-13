@@ -1,0 +1,7 @@
+-- Full backups: table, make_backup(kind), restore_backup(payload, mode), nightly pg_cron job (21:30 UTC = 00:30 Baghdad)
+-- Applied to project mtatozwppyixdtfjiekp on 2026-11-13 via MCP migration "backups_full_auto_restore".
+-- See that migration for the exact SQL; summary:
+--   backups(id, created_at, kind auto|manual|pre-restore, created_by, n_docs, size, data jsonb)  RLS: admins can select
+--   make_backup(p_kind)   security definer; admin-only for logged-in callers; keeps 30 auto + 20 other
+--   restore_backup(p, p_mode merge|replace)  security definer; admin-only; makes a pre-restore backup first
+--   cron job 'alhosseini-daily-backup' 30 21 * * *

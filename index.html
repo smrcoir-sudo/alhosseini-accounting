@@ -265,6 +265,7 @@ textarea{min-height:64px;resize:vertical}
 .vcbox{display:flex;align-items:center;gap:14px;margin:6px 0 12px}.vcmic{flex:0 0 auto;width:72px;height:72px;border-radius:50%;border:0;background:linear-gradient(135deg,#16794a,#2fb36d);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 8px 20px -8px rgba(22,121,74,.6)}.vcmic svg{width:32px;height:32px}.vcmic:disabled{background:#999;cursor:not-allowed}
 .vcmic.on{background:linear-gradient(135deg,#b3263a,#e0485d);animation:vcp 1.2s infinite}@keyframes vcp{0%{box-shadow:0 0 0 0 rgba(224,72,93,.55)}70%{box-shadow:0 0 0 16px rgba(224,72,93,0)}100%{box-shadow:0 0 0 0 rgba(224,72,93,0)}}
 .vcstat{font-size:14px;color:var(--muted);line-height:1.7}.vcres{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;line-height:1.8}
+.bkbox{margin-top:12px;padding:12px;border:1px dashed var(--line);border-radius:10px;background:var(--bg)}.bkbar{position:fixed;inset-inline-start:16px;bottom:16px;z-index:70;padding:12px 16px;border:0;border-radius:12px;background:#1d4fa3;color:#fff;font:inherit;font-weight:700;box-shadow:0 8px 20px rgba(0,0,0,.25);cursor:pointer}
 </style>
 
 <div id="app" dir="rtl" lang="fa">
@@ -1784,8 +1785,7 @@ function drawSettings(){
   <div class="panel"><h2>مدیریت <span class="sub">${S.isAdmin?'شما مدیر هستید':'فقط مدیر (Editor یا مالک) می‌تواند تغییر دهد'}</span></h2><div class="form">
     ${H.field('s_lock','قفل اسناد قبل از تاریخ',H.input('s_lock',S.config.lockBefore||'',{type:'date'}),{help:S.config.lockBefore?'اسناد قبل از '+faDate(new Date(S.config.lockBefore+'T12:00'))+' قابل ثبت، ویرایش یا ابطال نیستند':'قفلی تنظیم نشده'})}
     <div class="field"><span class="flabel">&nbsp;</span><div class="actions"><button class="btn" id="s_lock_save" ${S.isAdmin?'':'disabled'}>ذخیرهٔ قفل</button><button class="btn" id="s_lock_clear" ${S.isAdmin&&S.config.lockBefore?'':'disabled'}>برداشتن قفل</button></div></div>
-    <div class="field wide"><div class="actions">${S.dl?'<button class="btn" id="s_backup">دانلود نسخهٔ پشتیبان (JSON)</button>':''}</div><span class="help">پشتیبان شامل همهٔ حساب‌ها، اسناد و تنظیمات است.</span></div>
-  </div></div>`;
+  </div></div>${backupPanelHTML()}`;
   wireCommon($('#p-settings'));
   $('#s_base').onchange=e=>{ readSettings(); changeBase(e.target.value); drawSettings(); };
   $('#s_add').onclick=()=>{ readSettings(); currencyPicker(); };
@@ -1796,7 +1796,7 @@ function drawSettings(){
   $('#s_save').onclick=saveSettings;
   $('#s_lock_save').onclick=()=>saveLock($('#s_lock').value);
   $('#s_lock_clear').onclick=()=>saveLock('');
-  if($('#s_backup')) $('#s_backup').onclick=()=>(function(){ try{ localStorage.setItem('sarrafi_lastbackup',String(Date.now())); }catch(e){} return 1; })() && saveFile(`backup-${dayKey(Date.now())}.json`, JSON.stringify({exportedAt:new Date().toISOString(), settings:S.settings, config:S.config, accounts:S.accounts, vouchers:S.vouchers},null,1));
+  try{ wireBackupPanel(); }catch(e){ console.error(e); }
 }
 function readSettings(){
   SET.shop=$('#s_shop').value.trim(); SET.phone=$('#s_phone').value.trim(); SET.address=$('#s_addr').value.trim(); SET.footer=$('#s_footer').value.trim(); SET.idThreshold=parseNum($('#s_idt').value);
@@ -4946,6 +4946,94 @@ document.addEventListener('click',e=>{ if(e.target.closest('#vcBtn')){ try{ wind
   const first=()=>{ if(!armed) arm(); }; document.addEventListener('pointerdown',first,{once:true,capture:true}); document.addEventListener('keydown',first,{once:true,capture:true});
   setTimeout(()=>{ if(!armed) arm(); },1500);
 })();
+
+
+/* =================== backups: full download, server history (daily auto), restore, laptop folder =================== */
+const BK={
+  COLS:['accounts','vouchers','perms','orders','work','tms','msglog','kanban','cat','actlog'],
+  DOCS:['app/settings','admin/config','counters/main'],
+  hosted:()=>!!window.__sb,
+  once(c){ return new Promise((res,rej)=>{ let un=null, done=false; const t=setTimeout(()=>{ if(!done){ done=true; try{ un&&un(); }catch(e){} res({docs:[]}); } },8000); un=S.db.collection(c).onSnapshot(sn=>{ if(done) return; done=true; clearTimeout(t); setTimeout(()=>{ try{ un&&un(); }catch(e){} },0); res(sn); },e=>{ if(!done){ done=true; clearTimeout(t); res({docs:[]}); } }); }); },
+  stamp(d=new Date()){ const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; },
+  fname(d){ return `alhosseini-backup-${BK.stamp(d)}.json`; },
+  async build(){ /* returns backup object */
+    if(BK.hosted()){ const sb=window.__sb; const {data:id,error}=await sb.rpc('make_backup',{p_kind:'manual'}); if(error) throw error; return await BK.fetch(id); }
+    const docs=[]; for(const c of BK.COLS){ try{ const sn=await BK.once(c); (sn.docs||[]).forEach(d=>docs.push({col:c,id:d.id,data:d.data()})); }catch(e){} }
+    for(const p of BK.DOCS){ try{ const d=await S.db.doc(p).get(); if(d.exists) docs.push({col:p.split('/')[0],id:p.split('/')[1],data:d.data()}); }catch(e){} }
+    return {format:'alhosseini-backup-v1',exportedAt:new Date().toISOString(),kind:'manual',docs,members:[]}; },
+  async fetch(id){ const {data,error}=await window.__sb.from('backups').select('data').eq('id',id).single(); if(error) throw error; return data.data; },
+  async list(){ const {data,error}=await window.__sb.from('backups').select('id,created_at,kind,n_docs,size').order('created_at',{ascending:false}).limit(60); if(error) throw error; return data||[]; },
+  text(o){ return JSON.stringify(o); },
+  async download(o,name){ const t=BK.text(o); try{ localStorage.setItem('sarrafi_lastbackup',String(Date.now())); }catch(e){}
+    if(S.dl) return saveFile(name,t); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([t],{type:'application/json'})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); },
+  summary(o){ const c={}; (o.docs||[]).forEach(d=>c[d.col]=(c[d.col]||0)+1); return c; },
+  /* accept older export format {settings,config,accounts,vouchers} */
+  normalize(o){ if(o&&o.format==='alhosseini-backup-v1'&&Array.isArray(o.docs)) return o;
+    if(o&&Array.isArray(o.accounts)&&Array.isArray(o.vouchers)){ const docs=[]; o.accounts.forEach(a=>a?.id&&docs.push({col:'accounts',id:a.id,data:a})); o.vouchers.forEach(v=>v?.id&&docs.push({col:'vouchers',id:v.id,data:v})); if(o.settings) docs.push({col:'app',id:'settings',data:o.settings}); if(o.config) docs.push({col:'admin',id:'config',data:o.config}); return {format:'alhosseini-backup-v1',exportedAt:o.exportedAt||'',kind:'legacy',docs,members:[]}; }
+    throw new Error('فایل پشتیبان معتبر نیست'); },
+  async restore(o,mode){ if(BK.hosted()){ const {data,error}=await window.__sb.rpc('restore_backup',{p:o,p_mode:mode}); if(error) throw error; return data; }
+    let up=0, del=0; for(const d of o.docs){ if(d.col==='users') continue; await S.db.collection(d.col).doc(d.id).set(d.data); up++; }
+    if(mode==='replace'){ const keep=new Set(o.docs.map(d=>d.col+'/'+d.id)); for(const c of BK.COLS){ try{ const sn=await BK.once(c); for(const d of sn.docs||[]) if(!keep.has(c+'/'+d.id)){ await S.db.collection(c).doc(d.id).delete(); del++; } }catch(e){} } }
+    return {upserted:up,deleted:del}; },
+  /* ---- laptop folder (Chrome/Edge desktop: File System Access API) ---- */
+  fsOk:()=>typeof window.showDirectoryPicker==='function',
+  idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('sarrafi-bk',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); },
+  async kv(k,v){ const db=await BK.idb(); return new Promise((res,rej)=>{ const tx=db.transaction('kv',v===undefined?'readonly':'readwrite'); const st=tx.objectStore('kv'); const r=v===undefined?st.get(k):(v===null?st.delete(k):st.put(v,k)); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); },
+  async dir(){ try{ return await BK.kv('dir'); }catch(e){ return null; } },
+  async pickDir(){ const h=await window.showDirectoryPicker({id:'alhosseini-backups',mode:'readwrite',startIn:'documents'}); await BK.kv('dir',h); return h; },
+  async perm(h,ask){ const o={mode:'readwrite'}; if((await h.queryPermission(o))==='granted') return true; return ask?(await h.requestPermission(o))==='granted':false; },
+  async writeTo(h,o,name){ const fh=await h.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(BK.text(o)); await w.close(); try{ localStorage.setItem('bk_laptop_last',String(Date.now())); localStorage.setItem('sarrafi_lastbackup',String(Date.now())); }catch(e){} },
+  async latestForLaptop(){ if(BK.hosted()){ const L=await BK.list(); const fresh=L.find(b=>Date.now()-new Date(b.created_at).getTime()<20*3600e3); if(fresh) return {o:await BK.fetch(fresh.id),d:new Date(fresh.created_at)}; } return {o:await BK.build(),d:new Date()}; },
+  async saveToLaptop(ask){ const h=await BK.dir(); if(!h) return false; if(!(await BK.perm(h,ask))) return false; const {o,d}=await BK.latestForLaptop(); await BK.writeTo(h,o,BK.fname(d)); return true; },
+  dueLaptop(){ let t=0; try{ t=+localStorage.getItem('bk_laptop_last')||0; } catch(e){} return Date.now()-t>20*3600e3; }
+};
+const BKUP_KIND={auto:'خودکار روزانه',manual:'دستی','pre-restore':'قبل از بازگردانی',legacy:'قدیمی'};
+function backupPanelHTML(){ if(!S.isAdmin) return '';
+  return `<div class="panel" id="bkpanel"><h2>پشتیبان‌گیری <span class="sub">${BK.hosted()?'هر شب ساعت ۰۰:۳۰ خودکار؛ ۳۰ نسخهٔ آخر نگه داشته می‌شود':'نسخهٔ کامل همهٔ داده‌ها'}</span></h2>
+   <div class="actions" style="flex-wrap:wrap"><button class="btn primary" id="bk_now">⬇️ دانلود پشتیبان کامل (الان)</button><button class="btn" id="bk_restore">♻️ بازگردانی از فایل…</button><input type="file" id="bk_file" accept=".json,application/json" hidden></div>
+   <p class="mini muted" style="margin:6px 0 0">شامل همهٔ حساب‌ها، اسناد، تنظیمات و نرخ‌ها، کاربران و صلاحیت‌ها، دستورها، کارها و گزارش فعالیت. فایل‌های پیوست (عکس فیش‌ها) جداگانه در فضای ذخیرهٔ سایت می‌مانند.</p>
+   <div class="bkbox" id="bk_lap"></div>
+   ${BK.hosted()?`<h3 style="margin:14px 0 6px;font-size:15px">نسخه‌های ذخیره‌شده روی سرور</h3><div id="bk_list" class="mini muted">در حال بارگیری…</div>`:''}
+  </div>`; }
+async function drawLaptopBox(){ const el=$('#bk_lap'); if(!el) return;
+  if(!BK.fsOk()){ el.innerHTML=`<b>💻 ذخیرهٔ خودکار در لپ‌تاپ</b><p class="mini muted" style="margin:4px 0 0">این امکان فقط در <b>Chrome یا Edge روی کامپیوتر</b> کار می‌کند. در این مرورگر، دکمهٔ «دانلود پشتیبان کامل» فایل را در پوشهٔ Downloads ذخیره می‌کند.</p>`; return; }
+  const h=await BK.dir(); let last=0; try{ last=+localStorage.getItem('bk_laptop_last')||0; }catch(e){}
+  el.innerHTML=`<b>💻 ذخیرهٔ خودکار در لپ‌تاپ</b>
+   <p class="mini muted" style="margin:4px 0 8px">یک پوشه روی همین لپ‌تاپ انتخاب کنید؛ هر روز که برنامه را در این لپ‌تاپ باز کنید، آخرین پشتیبان خودکار در آن پوشه ذخیره می‌شود.</p>
+   ${h?`<div style="margin-bottom:8px">پوشه: <b class="ltr">${esc(h.name)}</b> · آخرین ذخیره: <b>${last?esc(faDate(last))+' '+esc(faTime(last)):'هنوز ذخیره نشده'}</b></div>`:''}
+   <div class="actions"><button class="btn sm" id="bk_pick">${h?'تغییر پوشه':'📁 انتخاب پوشه در لپ‌تاپ'}</button>${h?'<button class="btn sm primary" id="bk_lapnow">ذخیره در پوشه (الان)</button><button class="btn sm" id="bk_unpick">قطع</button>':''}</div>`;
+  $('#bk_pick').onclick=async()=>{ try{ await BK.pickDir(); toast('پوشه انتخاب شد؛ اولین پشتیبان ذخیره می‌شود…'); await BK.saveToLaptop(true); toast('پشتیبان در لپ‌تاپ ذخیره شد'); }catch(e){ if(e?.name!=='AbortError') toast('انتخاب پوشه انجام نشد: '+(e.message||e)); } drawLaptopBox(); };
+  if($('#bk_lapnow')) $('#bk_lapnow').onclick=async()=>{ try{ const ok=await BK.saveToLaptop(true); toast(ok?'پشتیبان در لپ‌تاپ ذخیره شد':'اجازهٔ دسترسی به پوشه داده نشد'); }catch(e){ toast('ذخیره نشد: '+(e.message||e)); } drawLaptopBox(); };
+  if($('#bk_unpick')) $('#bk_unpick').onclick=async()=>{ await BK.kv('dir',null); drawLaptopBox(); }; }
+async function drawBackupList(){ const el=$('#bk_list'); if(!el) return;
+  try{ const L=await BK.list(); if(!L.length){ el.textContent='هنوز نسخه‌ای روی سرور نیست.'; return; }
+    el.classList.remove('muted'); el.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>تاریخ</th><th>نوع</th><th class="r">اسناد</th><th class="r">حجم</th><th></th></tr></thead><tbody>${L.map(b=>`<tr><td class="num" style="white-space:nowrap">${esc(faDate(new Date(b.created_at).getTime()))} ${esc(faTime(new Date(b.created_at).getTime()))}</td><td class="mini">${esc(BKUP_KIND[b.kind]||b.kind)}</td><td class="r num">${nfFa(0).format(b.n_docs||0)}</td><td class="r num">${nfFa(0).format(Math.round((b.size||0)/1024))} KB</td><td><button class="btn sm" data-bkdl="${b.id}">⬇️ دانلود</button></td></tr>`).join('')}</tbody></table></div>`;
+    el.onclick=async e=>{ const b=e.target.closest('[data-bkdl]'); if(!b) return; b.disabled=true; try{ const row=L.find(x=>String(x.id)===b.dataset.bkdl); await BK.download(await BK.fetch(row.id),BK.fname(new Date(row.created_at))); }catch(err){ toast('دانلود نشد: '+(err.message||err)); } b.disabled=false; };
+  }catch(e){ el.textContent='فهرست نسخه‌ها بارگیری نشد: '+(e.message||e); } }
+function wireBackupPanel(){ if(!$('#bkpanel')) return;
+  $('#bk_now').onclick=async e=>{ const b=e.currentTarget; b.disabled=true; const t=b.textContent; b.textContent='در حال تهیهٔ پشتیبان…'; try{ const o=await BK.build(); await BK.download(o,BK.fname()); drawBackupList(); }catch(err){ toast('پشتیبان‌گیری انجام نشد: '+(err.message||err)); } b.disabled=false; b.textContent=t; };
+  $('#bk_restore').onclick=()=>$('#bk_file').click();
+  $('#bk_file').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return; let o; try{ o=BK.normalize(JSON.parse(await f.text())); }catch(err){ return toast('فایل خوانده نشد: '+(err.message||err)); } restoreDialog(o,f.name); };
+  drawLaptopBox(); drawBackupList(); }
+function restoreDialog(o,name){ const c=BK.summary(o); const L={accounts:'حساب‌ها',vouchers:'اسناد',perms:'صلاحیت کاربران',orders:'دستورها',app:'تنظیمات',admin:'تنظیمات مدیریت',counters:'شمارنده‌ها',actlog:'گزارش فعالیت',work:'کارها',tms:'حمل',kanban:'کانبان',cat:'کالاها',msglog:'پیام‌ها',users:'حضور کاربران'};
+  openModal(`<div class="row" style="margin-bottom:8px"><h3>♻️ بازگردانی پشتیبان</h3><button class="btn sm" data-close>بستن</button></div>
+   <p>فایل: <b class="ltr">${esc(name)}</b>${o.exportedAt?` · تهیه‌شده: <b>${esc(faDate(new Date(o.exportedAt).getTime()))} ${esc(faTime(new Date(o.exportedAt).getTime()))}</b>`:''}</p>
+   <div class="chips" style="margin:6px 0 12px">${Object.entries(c).map(([k,n])=>`<span class="chip">${esc(L[k]||k)}: ${nfFa(0).format(n)}</span>`).join('')}</div>
+   <div class="field"><label>روش بازگردانی</label><select id="rs_mode"><option value="merge">ادغام — اطلاعات فایل جایگزین همان موارد می‌شود؛ چیزهای جدیدتر حذف نمی‌شوند</option><option value="replace">جایگزینی کامل — هر چیزی که در فایل نیست حذف می‌شود</option></select></div>
+   <div class="alert" style="margin:10px 0;padding:10px 12px;border-radius:10px;background:#fff4e5;color:#7a4b00;border:1px solid #f3d19e">قبل از بازگردانی، یک نسخهٔ پشتیبان از وضعیت فعلی ${BK.hosted()?'خودکار روی سرور ساخته می‌شود («قبل از بازگردانی»)':'دانلود می‌شود'}. همهٔ کاربران بعد از بازگردانی داده‌های جدید را می‌بینند.</div>
+   <div class="field"><label>برای تأیید، کلمهٔ <b>بازگردانی</b> را تایپ کنید</label><input id="rs_ok" autocomplete="off"></div>
+   <div class="actions"><button class="btn primary" id="rs_go" disabled>بازگردانی</button></div>`);
+  $('#rs_ok').oninput=e=>{ $('#rs_go').disabled=e.target.value.trim()!=='بازگردانی'; };
+  $('#rs_go').onclick=async e=>{ const b=e.currentTarget; b.disabled=true; b.textContent='در حال بازگردانی…';
+    try{ if(!BK.hosted()){ try{ await BK.download(await BK.build(),'before-restore-'+BK.fname()); }catch(_){} }
+      const r=await BK.restore(o,$('#rs_mode').value); closeModal(); toast(`بازگردانی انجام شد: ${nfFa(0).format(r.upserted||0)} مورد${r.deleted?'، '+nfFa(0).format(r.deleted)+' مورد حذف':''}`); setTimeout(()=>location.reload(),1500);
+    }catch(err){ b.disabled=false; b.textContent='بازگردانی'; toast('بازگردانی انجام نشد: '+(err.message||err)); } }; }
+/* daily laptop save when an admin opens the app on a laptop with a chosen folder */
+setTimeout(async()=>{ try{ if(!S.isAdmin||!BK.fsOk()||!BK.dueLaptop()) return; const h=await BK.dir(); if(!h) return;
+  if(await BK.perm(h,false)){ await BK.saveToLaptop(false); toast('💾 پشتیبان امروز در لپ‌تاپ ذخیره شد'); return; }
+  const bar=document.createElement('button'); bar.type='button'; bar.className='bkbar'; bar.textContent='💾 ذخیرهٔ پشتیبان امروز در پوشهٔ لپ‌تاپ — بزنید'; document.body.appendChild(bar);
+  bar.onclick=async()=>{ bar.disabled=true; try{ const ok=await BK.saveToLaptop(true); toast(ok?'پشتیبان در لپ‌تاپ ذخیره شد':'اجازهٔ دسترسی داده نشد'); }catch(e){ toast('ذخیره نشد'); } bar.remove(); };
+  setTimeout(()=>bar.remove(),60000); }catch(e){} },6000);
 
 </script>
 
