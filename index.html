@@ -598,7 +598,11 @@ function fillMethodAcc(p){
   w.hidden = m==='party'||m==='mixed'||m==='order'; const mx=$('#'+p+'_mix'); if(mx) mx.hidden=m!=='mixed';
   $('#w_'+p+'_a label').textContent = m==='cash'?'صندوق': m==='bank'?'حساب بانکی':'حساب';
   sel.innerHTML = opts.map(([k,l])=>`<option value="${esc(k)}">${esc(l)}</option>`).join('');
-  if(opts.some(o=>o[0]===prev)) sel.value=prev;
+  if(!sel.dataset.tl){ sel.dataset.tl=1; sel.addEventListener('change',e=>{ if(e.isTrusted) sel.dataset.touched=1; }); }
+  const has=k=>opts.some(o=>o[0]===k);
+  if(has(prev) && (sel.dataset.touched || S.editing || m!=='cash' || prev!==opts[0]?.[0])) sel.value=prev;
+  else if(m==='cash' && has(myCash())) sel.value=myCash();
+  else if(has(prev)) sel.value=prev;
   showBal(sel);
 }
 function resolveMethod(p, party){ const m=$('#'+p+'_m').value; if(m==='party'||m==='mixed'||m==='order') return party; return $('#'+p+'_a').value; }
@@ -944,7 +948,7 @@ T.expense = {
   form(p){ const k=p.kind||'expense'; return `<input type="hidden" id="f_kind" value="${k}">
     <div class="field wide"><div class="seg" id="kindSeg"><button type="button" data-v="expense" aria-pressed="${k==='expense'}">هزینه</button><button type="button" data-v="income" aria-pressed="${k==='income'}">درآمد متفرقه</button></div></div>
     ${H.field('f_acc','سرفصل',`<div id="accWrap"></div>`)}
-    ${H.field('f_fund','از / به صندوق یا بانک',H.acc('f_fund',['cash','bank'],'CASH1',{search:false}))}
+    ${H.field('f_fund','از / به صندوق یا بانک',H.acc('f_fund',['cash','bank'],myCash(),{search:false}))}
     ${H.field('f_cur','ارز',H.select('f_cur',curOpts(),base()))}
     ${H.field('f_amt','مبلغ',H.input('f_amt','',{num:1,ph:'0'}))}
     ${dateBox()}${footBox({ph:'مثلاً اجاره، حقوق، قبض'})}`; },
@@ -2131,7 +2135,7 @@ T.refine = {
     ${H.field('f_cert','شمارهٔ گواهی',H.input('f_cert','',{ltr:1}))}
     ${H.field('f_cost','هزینهٔ ری‌گیری',H.input('f_cost','',{num:1,ph:'0'}))}
     ${H.field('f_ccur','ارز هزینه',H.select('f_ccur',moneyOpts(),base()))}
-    ${H.field('f_cfund','پرداخت از',H.acc('f_cfund',FUNDS,'CASH1',{search:false}))}
+    ${H.field('f_cfund','پرداخت از',H.acc('f_cfund',FUNDS,myCash(),{search:false}))}
     <div class="field wide"><div class="calc" id="calc"></div></div>${dateBox()}${footBox()}`; },
   wire(){ const upd=()=>{ const dp=N('f_sw')*N('f_dp')/1000, mp=N('f_rw')*N('f_mp')/1000, d=mp-dp; $('#calc').innerHTML=`طلای خالص اظهاری: <b class="num">${fmt(dp,GC())}</b> گرم · اندازه‌گیری: <b class="num">${fmt(mp,GC())}</b> گرم · اختلاف: <b class="num ${d<0?'neg':'pos'}">${fmt(d,GC())}</b> گرم`; };
     ['f_sw','f_dp','f_rw','f_mp'].forEach(i=>$('#'+i).addEventListener('input',upd)); upd(); },
@@ -2728,7 +2732,7 @@ function dataLists(){
 }
 function nextRemitCode(agentId){ const a=acc(agentId); const pre=a?.remitPrefix||''; const start=+a?.remitStart||1;
   let mx=start-1; S.vouchers.forEach(v=>{ if(v.type==='remitOut' && v.meta?.agent===agentId && String(v.meta.code||'').startsWith(pre)){ const n=parseInt(String(v.meta.code).slice(pre.length),10); if(n>mx) mx=n; } }); return pre+String(mx+1); }
-function myCash(){ if(myOpt().defCash && acc(myOpt().defCash)) return myOpt().defCash; const c=[...ACC.values()].find(a=>a.kind==='cash' && a.active!==false && (a.users||[]).includes(S.uid)); return c?.id || catGet(S.branch)?.defCash || 'CASH1'; }
+function myCash(){ const dc=(S.perms?.[S.uid]||{}).defCash; if(dc && acc(dc) && acc(dc).active!==false) return dc; const c=[...ACC.values()].find(a=>a.kind==='cash' && a.active!==false && (a.users||[]).includes(S.uid)); return c?.id || catGet(S.branch)?.defCash || 'CASH1'; }
 const INV_TYPES = v => (v.type==='oil') || (v.type==='tmsbill') || (v.type==='inv' && ['sale','purchase'].includes(v.meta?.kind)) || (v.type==='jewelry');
 function invPaid(v){ return S.vouchers.filter(x=>!x.voided && !x.pending && x.meta?.invref===v.id).reduce((s,x)=>s+(x.meta.cur===(v.meta.y||v.meta.cur)?x.meta.amt:toBase(x.meta.amt,x.meta.cur)*perBase(v.meta.y||v.meta.cur)),0); }
 function payStatus(v){ const m=v.meta||{}; const onAcc = v.type==='tmsbill' || (m.recvM||'')==='party' || (m.payM||'')==='party' || (v.type==='oil' && ((v.f?.f_in_m||v.f?.f_out_m)==='party')) || (v.type==='inv' && ((v.f?.f_in_m||v.f?.f_out_m)==='party'));
