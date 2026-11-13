@@ -653,7 +653,7 @@ function wireCommon(root){
       const blank=sel.querySelector('option[value=""]')?.textContent;
       const opts=accOpts(kinds,{blank}).filter(([k,l])=>!k || !t || l.includes(t) || (acc(k)?.mobile||'').includes(t) || (acc(k)?.code||'').includes(t));
       sel.innerHTML=opts.map(([k,l])=>`<option value="${esc(k)}">${esc(l)}</option>`).join('');
-      if(opts.some(o=>o[0]===cur)) sel.value=cur; else if(opts.length>1 && t) sel.value=opts.find(o=>o[0])?.[0]||'';
+      const real=opts.filter(o=>o[0]); if(cur && opts.some(o=>o[0]===cur)) sel.value=cur; else if(t && real.length) sel.value=real[0][0]; else if(opts.some(o=>o[0]===cur)) sel.value=cur;
       sel.dispatchEvent(new Event('change'));
     });
   });
