@@ -623,7 +623,7 @@ function footBox(o={}){
 function showBal(sel){
   const el=$('#'+sel.id+'_bal'); if(!el) return;
   const id=sel.value; if(!id || id==='WALKIN'){ el.innerHTML=''; return; }
-  const a=acc(id); const nH=a&&!['cash','bank','vault','system','equity','carrier'].includes(a.kind)?partyVouchers(id).length:0;
+  const a=acc(id); const nH=a&&!['system','equity'].includes(a.kind)?partyVouchers(id).length:0;
   el.innerHTML = balChips(balOf(id), a?.kind) + (a?.limit ? ` <span class="chip info">سقف اعتبار ${bmoney(a.limit)}</span>`:'') + (nH?` <button type="button" class="chip phist" onclick="partyHistory('${esc(id)}')" title="نمایش اسناد قبلی این طرف حساب">📄 اسناد قبلی (${nfFa(0).format(nH)})</button>`:'');
 }
 function wireCommon(root){
