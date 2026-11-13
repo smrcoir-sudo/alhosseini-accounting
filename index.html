@@ -4743,7 +4743,14 @@ RPT.accstatus_wire=()=>{ wireCommon($('#p-report')); const f=S.asF; const draw=(
   }
   const trigger=e=>{ const sel=e.target.closest&&e.target.closest('select'); if(!sel||sel.disabled||!isCurSel(sel)) return; e.preventDefault(); e.stopPropagation(); if(e.type==='mousedown'&&e.button!==0) return; open(sel); };
   document.addEventListener('mousedown',trigger,true);
-  document.addEventListener('touchend',e=>{ const sel=e.target.closest&&e.target.closest('select'); if(sel&&!sel.disabled&&isCurSel(sel)){ e.preventDefault(); open(sel); } },{capture:true,passive:false});
+  let tStart=null;
+  document.addEventListener('touchstart',e=>{ const t=e.touches[0]; tStart=e.touches.length===1?{x:t.clientX,y:t.clientY,at:Date.now(),sy:scrollY,el:e.target}:null; },{capture:true,passive:true});
+  document.addEventListener('touchmove',e=>{ if(!tStart) return; const t=e.touches[0]; if(Math.abs(t.clientX-tStart.x)>8||Math.abs(t.clientY-tStart.y)>8) tStart.moved=true; },{capture:true,passive:true});
+  document.addEventListener('touchend',e=>{ const sel=e.target.closest&&e.target.closest('select'); if(!sel||sel.disabled||!isCurSel(sel)) return;
+    const st=tStart; tStart=null; const t=e.changedTouches[0];
+    const isTap=st && st.el===e.target && !st.moved && Math.abs(t.clientX-st.x)<=8 && Math.abs(t.clientY-st.y)<=8 && Math.abs(scrollY-st.sy)<3 && Date.now()-st.at<600;
+    e.preventDefault(); /* never let a scroll-touch open the native list either */
+    if(isTap) open(sel); },{capture:true,passive:false});
   document.addEventListener('keydown',e=>{ const sel=e.target; if(!(sel instanceof HTMLSelectElement)||sel.disabled||e.ctrlKey||e.metaKey||e.altKey||!isCurSel(sel)) return;
     if(e.key==='Enter'||e.key===' '||e.key==='ArrowDown'&&e.altKey||e.key==='F4'){ e.preventDefault(); open(sel); } else if(e.key.length===1&&/\S/.test(e.key)){ e.preventDefault(); open(sel,e.key); } },true);
   addEventListener('resize',()=>{ if(pop&&innerWidth>560) close(); });
