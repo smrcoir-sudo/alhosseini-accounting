@@ -4872,7 +4872,7 @@ const VC={
     const U=VC.usage();
     VC.BASE.forEach(([w,b])=>{ const re=new RegExp('(^|\\s)'+w+'(\\s+(\\S+))?(\\s+(\\S+))?','g'); let m; while((m=re.exec(t))){ const pos=m.index+m[1].length;
       let cands=C.filter(c=>c.code===b||c.code.split('-')[0]===b); if(!cands.length) continue; let len=w.length, picked=null;
-      for(const nx of [m[3],m[5]].filter(Boolean)){ const L=VC.LOC[nx]; const f=cands.filter(c=>VC.nz(c.name||'').includes(nx)||(L&&c.code.includes(L))); if(f.length){ picked=f.sort((a,c)=>(U[c.code]||0)-(U[a.code]||0))[0]; len=t.indexOf(nx,pos)+nx.length-pos; break; } if(nx==='مقابل'||nx==='در'||/^\d/.test(nx)) break; }
+      for(const nx of [m[3],m[5]].filter(Boolean)){ const L=VC.LOC[nx]; if(/^(از|به|را|رو|با|بابت|برای)$/.test(nx)) break; const f=cands.filter(c=>VC.nz(c.name||'').split(' ').includes(nx)||(L&&c.code.includes(L))); if(f.length){ picked=f.sort((a,c)=>(U[c.code]||0)-(U[a.code]||0))[0]; len=t.indexOf(nx,pos)+nx.length-pos; break; } if(nx==='مقابل'||nx==='در'||/^\d/.test(nx)) break; }
       if(!picked){ const home=(base().split('-')[1]||'').toUpperCase(); picked=cands.find(c=>c.code===b)||cands.slice().sort((a,c)=>(U[c.code]||0)-(U[a.code]||0)||((home&&c.code.endsWith('-'+home))?1:0)-((home&&a.code.endsWith('-'+home))?1:0))[0]; }
       hits.push({pos,len,code:picked.code,str:1}); } });
     hits.sort((a,b)=>a.pos-b.pos||b.len-a.len||b.str-a.str); const out=[]; let end=-1; hits.forEach(h=>{ if(h.pos>=end){ out.push(h); end=h.pos+h.len; } else if(out.length && h.pos===out[out.length-1].pos && h.len>out[out.length-1].len){ out[out.length-1]=h; end=h.pos+h.len; } }); return out; },
@@ -4880,11 +4880,33 @@ const VC={
     A.forEach(a=>{ const n=VC.nz(a.name); if(n.length<2) return; const i=t.indexOf(n); if(i>=0&&(!best||n.length>best.n)) best={id:a.id,n:n.length,pos:i}; });
     if(!best){ const m=t.match(side==='sell'?/(?:به|برای)\s+(\S+(?:\s+\S+)?)/:/(?:از)\s+(\S+(?:\s+\S+)?)/); if(m){ const w=m[1].split(' ')[0]; if(w.length>=3){ const f=A.filter(a=>VC.nz(a.name).split(' ').includes(w)); if(f.length===1) best={id:f[0].id}; } } }
     return best?.id||null; },
-  fund(t){ const F=[...ACC.values()].filter(a=>['cash','bank'].includes(a.kind)&&a.active!==false); let best=null; F.forEach(a=>{ const n=VC.nz(a.name); if(n.length>=3&&t.includes(n)&&(!best||n.length>best.n)) best={id:a.id,n:n.length}; });
-    if(!best&&/از\s*(?:حساب\s*)?بانک|با\s*بانک|بانکی|واریز/.test(t)){ const b=F.filter(a=>a.kind==='bank'); if(b.length===1) best={id:b[0].id}; } return best?.id||null; },
+  /* consonant skeleton so a Latin name ("Saffar") matches its spoken Persian form ("صفار") */
+  SK(s){ s=String(s||'').toLowerCase().replace(/sh/g,'ش').replace(/kh/g,'خ').replace(/ch/g,'چ').replace(/gh/g,'غ');
+    const M={'س':'s','ص':'s','ث':'s','c':'k','ز':'z','ذ':'z','ض':'z','ظ':'z','ت':'t','ط':'t','ح':'h','ه':'h','ک':'k','ق':'k','q':'k','غ':'k','گ':'g','ج':'j','چ':'C','ش':'S','خ':'x','ف':'f','پ':'p','ب':'b','د':'d','ر':'r','ل':'l','م':'m','ن':'n'};
+    let o=''; for(const ch of s){ const m=ch in M?M[ch]:(/[bdfghjklmnprstvxz]/.test(ch)?ch:''); if(m&&o[o.length-1]!==m) o+=m; } return o; },
+  /* cash boxes / banks mentioned in t, in order, with direction ('from' after «از», 'to' after «به») */
+  funds(t,loose){ const F=[...ACC.values()].filter(a=>['cash','bank'].includes(a.kind)&&a.active!==false); const hits=[]; const W=[...t.matchAll(/\S+/g)];
+    const PFX=/^(صندوق|کشیر|کشر|کاشیر|کش|بانک|حساب)$/;
+    F.forEach(a=>{ const n=VC.nz(a.name); const keys=[n]; const st=n.replace(/^(صندوق|کشیر|کشر|کاشیر)\s*/,''); if(loose&&st!==n) keys.push(st);
+      keys.forEach(k=>{ if(k.length<3) return; let i=t.indexOf(k); while(i>=0){ hits.push({id:a.id,pos:i,len:k.length}); i=t.indexOf(k,i+1); } });
+      const lat=(String(a.name).match(/[a-z]{2,}/gi)||[]).map(VC.SK).filter(x=>x.length>=2);
+      if(lat.length) W.forEach((m,j)=>{ if(lat.includes(VC.SK(m[0]))&&(loose||PFX.test(W[j-1]?.[0]||''))) hits.push({id:a.id,pos:m.index,len:m[0].length}); }); });
+    hits.sort((a,b)=>a.pos-b.pos||b.len-a.len); const out=[]; let end=-1; hits.forEach(h=>{ if(h.pos>=end){ out.push(h); end=h.pos+h.len; } });
+    out.forEach(h=>{ const pre=t.slice(0,h.pos).trim().split(' ').filter(Boolean); let w=pre.pop(); while(w&&PFX.test(w)) w=pre.pop(); h.dir=w==='از'?'from':(/^(به|تو|توی|داخل|در)$/.test(w||'')?'to':null); });
+    return out; },
+  fund(t){ const F=[...ACC.values()].filter(a=>['cash','bank'].includes(a.kind)&&a.active!==false); let id=VC.funds(t,false)[0]?.id||null;
+    if(!id&&/از\s*(?:حساب\s*)?بانک|با\s*بانک|بانکی|واریز/.test(t)){ const b=F.filter(a=>a.kind==='bank'); if(b.length===1) id=b[0].id; } return id; },
+  amt(t,cs){ const nums=[...t.matchAll(/\d+(?:\.\d+)?/g)]; const firstCur=cs[0]?.pos??Infinity; const pre=nums.filter(m=>m.index<firstCur); return nums.length?parseFloat((pre[pre.length-1]||nums[0])[0]):null; },
   parse(raw){ let t=VC.nz(raw); t=VC.nums(t);
     const fx=/نرخ|مقابل|در برابر|خرید|خریدم|فروخت|فروش|بفروش|بخر/.test(t);
     const isPay=/پرداخت|پرداختم|دادم|بده|بدید|بپرداز|واریز|تحویل دادم|حواله/.test(t), isRec=/دریافت|گرفتم|بگیر|تحویل گرفتم|وصول|آورد/.test(t);
+    const isTr=/انتقال|منتقل|جابجا|جابه جا|جا به جا|(^|\s)ببر(\s|$)|بردم|بریز|ریختم/.test(t);
+    if(!fx&&(isTr||((isPay||isRec)&&VC.funds(t,false).length>=2&&!VC.party(t,'buy')))){ const fs=VC.funds(t,true); const cs=VC.curs(t);
+      let from=fs.find(h=>h.dir==='from')?.id||null, to=fs.find(h=>h.dir==='to'&&h.id!==from)?.id||null; const rest=fs.map(h=>h.id).filter(i=>i!==from&&i!==to);
+      if(!from&&rest.length) from=rest.shift(); if(!to&&rest.length) to=rest.shift(); const mc=myCash();
+      if(!from&&to&&mc&&mc!==to) from=mc; else if(from&&!to&&mc&&mc!==from) to=mc;
+      const nm=t.match(/(?:بابت|برای)\s+(.+?)(?:\s+(?:انتقال|منتقل|واریز|بردم|ریختم).*)?$/);
+      return {text:t, mode:'transfer', cur:cs[0]?.code||null, amt:VC.amt(t,cs), from, to, note:nm?nm[1].trim():''}; }
     if(!fx&&(isPay||isRec)){ const kind=isPay&&(!isRec||t.search(/پرداخت|دادم|بده|واریز|حواله/)>t.search(/دریافت|گرفتم|بگیر|وصول/))?'cashOut':'cashIn';
       const cs=VC.curs(t); const nums=[...t.matchAll(/\d+(?:\.\d+)?/g)]; const firstCur=cs[0]?.pos??Infinity; const pre=nums.filter(m=>m.index<firstCur);
       const amt=nums.length?parseFloat((pre[pre.length-1]||nums[0])[0]):null; const nm=t.match(/(?:بابت|برای)\s+(.+?)(?:\s+(?:پرداخت|دادم|دریافت|گرفتم|واریز).*)?$/);
@@ -4900,6 +4922,10 @@ const VC={
     if(rate==null && nums.length>=2){ const others=nums.map(m=>parseFloat(m[0])).filter(v=>v!==amt); if(others.length) rate=others[0]; }
     return {text:t, side, x, y, amt, rate, party:VC.party(t,side||'buy')}; },
   async apply(r){ const set=(id,v,ev='input')=>{ const e=$('#'+id); if(!e||v==null) return; e.value=typeof v==='number'?enNum(v):v; e.dispatchEvent(new Event(ev,{bubbles:true})); };
+    if(r.mode==='transfer'){ openForm('transfer',{ttype:'fund'}); await sleep(120);
+      const pick=(id,v)=>{ const e=$('#'+id); if(e&&v&&[...e.options].some(o=>o.value===v)) set(id,v,'change'); }; pick('f_from',r.from); pick('f_to',r.to);
+      if(r.cur) set('f_cur',r.cur,'change'); await sleep(40); if(r.amt!=null) set('f_amt',r.amt); if(r.note) set('f_note',r.note);
+      $('#f_amt')?.scrollIntoView({block:'center',behavior:'smooth'}); return true; }
     if(r.mode==='recpay'){ openForm('recpay',{kind:r.kind,party:r.party||''}); await sleep(120);
       if(r.party){ const s=$('#f_party'); if(s&&[...s.options].some(o=>o.value===r.party)){ s.value=r.party; s.dispatchEvent(new Event('change',{bubbles:true})); } }
       if(r.cur) set('f_cur',r.cur,'change'); if(r.fund){ const f=$('#f_fund'); if(f&&[...f.options].some(o=>o.value===r.fund)) set('f_fund',r.fund,'change'); }
@@ -4913,6 +4939,7 @@ const VC={
     if(r.amt!=null) set('f_xa',r.amt); if(r.rate!=null) set('f_rate',r.rate); await sleep(30); if(r.amt!=null) set('f_xa',r.amt);
     $('#f_xa')?.scrollIntoView({block:'center',behavior:'smooth'}); return true; },
   summary(r){ const M=(a,c)=>a!=null?fmt(a,c||'IQD')+' ':'' ; const pn=r.party?acc(r.party)?.name:'';
+    if(r.mode==='transfer') return `انتقال ${M(r.amt,r.cur)}${esc(r.cur||'—')} از ${esc(acc(r.from)?.name||'—')} به ${esc(acc(r.to)?.name||'—')}${r.note?' — بابت '+esc(r.note):''}`;
     if(r.mode==='recpay') return `${r.kind==='cashOut'?'پرداخت':'دریافت'} ${M(r.amt,r.cur)}${esc(r.cur||'—')}${pn?(r.kind==='cashOut'?' به ':' از ')+esc(pn):''}${r.fund?(r.kind==='cashOut'?' — از ':' — به ')+esc(acc(r.fund)?.name||''):''}${r.note?' — بابت '+esc(r.note):''}`;
     return `${r.side==='sell'?'فروش':'خرید'} ${M(r.amt,r.x)}${esc(r.x||'—')}${r.rate!=null?' به نرخ '+fmt(r.rate,'IQD'):''}${r.y?' در مقابل '+esc(r.y):''}${pn?' — طرف حساب: '+esc(pn):''}`; }
 };
@@ -4920,15 +4947,15 @@ function voiceDialog(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   openModal(`<div class="row" style="margin-bottom:8px"><h3>🎙️ فرمان صوتی</h3><button class="btn sm" data-close>بستن</button></div>
    <div class="vcbox"><button type="button" class="vcmic" id="vc_mic" ${SR?'':'disabled'} aria-label="شروع/توقف گوش دادن"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
-   <div class="vcstat" id="vc_stat">${SR?'روی میکروفون بزنید و بگویید؛ مثلاً: «۱۰۰ دلار نجف به نرخ ۱۶۸۰ در مقابل دینار نجف خریدم» یا «۵ میلیون دینار به حمزه پرداخت کردم»':'مرورگر شما تشخیص گفتار ندارد (کروم یا سافاری پیشنهاد می‌شود). می‌توانید فرمان را تایپ کنید.'}</div></div>
-   <div class="field"><label>متن فرمان (قابل ویرایش)</label><textarea id="vc_txt" rows="2" placeholder="مثلاً: ۵۰۰ یورو از حمزه به نرخ ۱۵۵۰ مقابل دینار خریدم — یا: دو میلیون دینار به زکریا پرداخت کردم"></textarea></div>
+   <div class="vcstat" id="vc_stat">${SR?'روی میکروفون بزنید و بگویید؛ مثلاً: «۱۰۰ دلار نجف به نرخ ۱۶۸۰ در مقابل دینار نجف خریدم» یا «۵ میلیون دینار به حمزه پرداخت کردم» یا «۱۰ میلیون دینار از کشیر صفار به صندوق دفتر منتقل کردم»':'مرورگر شما تشخیص گفتار ندارد (کروم یا سافاری پیشنهاد می‌شود). می‌توانید فرمان را تایپ کنید.'}</div></div>
+   <div class="field"><label>متن فرمان (قابل ویرایش)</label><textarea id="vc_txt" rows="2" placeholder="مثلاً: ۵۰۰ یورو از حمزه به نرخ ۱۵۵۰ مقابل دینار خریدم — یا: دو میلیون دینار به زکریا پرداخت کردم — یا: ۵۰۰۰ دلار از صندوق بالا به کشیر حمید انتقال بده"></textarea></div>
    <div id="vc_res" class="vcres" hidden></div>
    <div class="actions"><button type="button" class="btn primary" id="vc_go">اجرا و باز کردن فرم</button></div>
    <p class="mini muted" style="margin-top:8px">فرم فقط پر می‌شود و چیزی خودکار ثبت نمی‌شود؛ بعد از بررسی «ثبت» را بزنید. نام ارزها همان نام‌های تعریف‌شده در «نرخ ارز و تنظیمات» است (مثل «دلار نجف»، «دینار نجف»، «تومان حساب»).</p>`);
   const txt=$('#vc_txt'), stat=$('#vc_stat'), res=$('#vc_res'), mic=$('#vc_mic'); let rec=null, on=false;
-  const show=()=>{ const t=txt.value.trim(); if(!t){ res.hidden=true; return null; } const r=VC.parse(t); res.hidden=false; res.innerHTML=`<b>برداشت برنامه:</b> ${VC.summary(r)}${(r.mode==='recpay'?!r.cur:!r.x)||r.amt==null?'<div class="neg mini">مبلغ یا ارز تشخیص داده نشد؛ متن را اصلاح کنید.</div>':''}${r.mode==='recpay'&&!r.party?'<div class="neg mini">طرف حساب تشخیص داده نشد؛ بعد از باز شدن فرم انتخابش کنید.</div>':''}`; return r; };
+  const show=()=>{ const t=txt.value.trim(); if(!t){ res.hidden=true; return null; } const r=VC.parse(t); res.hidden=false; res.innerHTML=`<b>برداشت برنامه:</b> ${VC.summary(r)}${(r.mode?!r.cur:!r.x)||r.amt==null?'<div class="neg mini">مبلغ یا ارز تشخیص داده نشد؛ متن را اصلاح کنید.</div>':''}${r.mode==='transfer'&&(!r.from||!r.to)?'<div class="neg mini">صندوق مبدأ یا مقصد تشخیص داده نشد؛ در فرم انتخابش کنید.</div>':''}${r.mode==='recpay'&&!r.party?'<div class="neg mini">طرف حساب تشخیص داده نشد؛ بعد از باز شدن فرم انتخابش کنید.</div>':''}`; return r; };
   txt.oninput=show;
-  const run=async()=>{ const r=show(); if(!r) return; if((r.mode==='recpay'?!r.cur:!r.x)&&r.amt==null){ stat.textContent='فرمان قابل تشخیص نبود؛ متن را اصلاح کنید.'; return; } closeModal(); await VC.apply(r); toast(VC.summary(r).replace(/<[^>]+>/g,'')); };
+  const run=async()=>{ const r=show(); if(!r) return; if((r.mode?!r.cur:!r.x)&&r.amt==null){ stat.textContent='فرمان قابل تشخیص نبود؛ متن را اصلاح کنید.'; return; } closeModal(); await VC.apply(r); toast(VC.summary(r).replace(/<[^>]+>/g,'')); };
   $('#vc_go').onclick=run;
   if(SR) mic.onclick=()=>{ if(on){ try{ rec.stop(); }catch(e){} return; }
     rec=new SR(); rec.lang='fa-IR'; rec.interimResults=true; rec.maxAlternatives=1; rec.continuous=false;
