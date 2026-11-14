@@ -4880,8 +4880,16 @@ const VC={
     A.forEach(a=>{ const n=VC.nz(a.name); if(n.length<2) return; const i=t.indexOf(n); if(i>=0&&(!best||n.length>best.n)) best={id:a.id,n:n.length,pos:i}; });
     if(!best){ const m=t.match(side==='sell'?/(?:به|برای)\s+(\S+(?:\s+\S+)?)/:/(?:از)\s+(\S+(?:\s+\S+)?)/); if(m){ const w=m[1].split(' ')[0]; if(w.length>=3){ const f=A.filter(a=>VC.nz(a.name).split(' ').includes(w)); if(f.length===1) best={id:f[0].id}; } } }
     return best?.id||null; },
+  fund(t){ const F=[...ACC.values()].filter(a=>['cash','bank'].includes(a.kind)&&a.active!==false); let best=null; F.forEach(a=>{ const n=VC.nz(a.name); if(n.length>=3&&t.includes(n)&&(!best||n.length>best.n)) best={id:a.id,n:n.length}; });
+    if(!best&&/از\s*(?:حساب\s*)?بانک|با\s*بانک|بانکی|واریز/.test(t)){ const b=F.filter(a=>a.kind==='bank'); if(b.length===1) best={id:b[0].id}; } return best?.id||null; },
   parse(raw){ let t=VC.nz(raw); t=VC.nums(t);
-    const sell=/فروخت|فروش|بفروش|دادم/.test(t), buy=/خرید|خریدم|گرفتم|بخر/.test(t);
+    const fx=/نرخ|مقابل|در برابر|خرید|خریدم|فروخت|فروش|بفروش|بخر/.test(t);
+    const isPay=/پرداخت|پرداختم|دادم|بده|بدید|بپرداز|واریز|تحویل دادم|حواله/.test(t), isRec=/دریافت|گرفتم|بگیر|تحویل گرفتم|وصول|آورد/.test(t);
+    if(!fx&&(isPay||isRec)){ const kind=isPay&&(!isRec||t.search(/پرداخت|دادم|بده|واریز|حواله/)>t.search(/دریافت|گرفتم|بگیر|وصول/))?'cashOut':'cashIn';
+      const cs=VC.curs(t); const nums=[...t.matchAll(/\d+(?:\.\d+)?/g)]; const firstCur=cs[0]?.pos??Infinity; const pre=nums.filter(m=>m.index<firstCur);
+      const amt=nums.length?parseFloat((pre[pre.length-1]||nums[0])[0]):null; const nm=t.match(/(?:بابت|برای)\s+(.+?)(?:\s+(?:پرداخت|دادم|دریافت|گرفتم|واریز).*)?$/);
+      return {text:t, mode:'recpay', kind, cur:cs[0]?.code||null, amt, party:VC.party(t,kind==='cashOut'?'sell':'buy'), fund:VC.fund(t), note:nm?nm[1].trim():''}; }
+    const sell=/فروخت|فروش|بفروش/.test(t), buy=/خرید|خریدم|گرفتم|بخر/.test(t);
     let side=null; if(sell&&!buy) side='sell'; else if(buy&&!sell) side='buy'; else if(buy&&sell) side=t.search(/فروخت|فروش/)>t.search(/خرید|گرفتم/)?'sell':'buy';
     const cs=VC.curs(t);
     let rate=null, rateRange=null; const rm=t.match(/(?:نرخ|قیمت|ریت|فی)\s*(?:ی|ِ)?\s*(\d+(?:\.\d+)?)/); if(rm){ rate=parseFloat(rm[1]); rateRange=[rm.index,rm.index+rm[0].length]; }
@@ -4891,37 +4899,43 @@ const VC={
     let amt=null; if(nums.length){ const firstCur=cs[0]?.pos??Infinity; const pre=nums.filter(m=>m.index<firstCur); amt=parseFloat((pre[pre.length-1]||nums[0])[0]); }
     if(rate==null && nums.length>=2){ const others=nums.map(m=>parseFloat(m[0])).filter(v=>v!==amt); if(others.length) rate=others[0]; }
     return {text:t, side, x, y, amt, rate, party:VC.party(t,side||'buy')}; },
-  async apply(r){ if(!r.side&&!r.x&&!r.amt) return false;
+  async apply(r){ const set=(id,v,ev='input')=>{ const e=$('#'+id); if(!e||v==null) return; e.value=typeof v==='number'?enNum(v):v; e.dispatchEvent(new Event(ev,{bubbles:true})); };
+    if(r.mode==='recpay'){ openForm('recpay',{kind:r.kind,party:r.party||''}); await sleep(120);
+      if(r.party){ const s=$('#f_party'); if(s&&[...s.options].some(o=>o.value===r.party)){ s.value=r.party; s.dispatchEvent(new Event('change',{bubbles:true})); } }
+      if(r.cur) set('f_cur',r.cur,'change'); if(r.fund){ const f=$('#f_fund'); if(f&&[...f.options].some(o=>o.value===r.fund)) set('f_fund',r.fund,'change'); }
+      await sleep(40); if(r.amt!=null) set('f_amt',r.amt); if(r.note) set('f_note',r.note);
+      $('#f_amt')?.scrollIntoView({block:'center',behavior:'smooth'}); return true; }
+    if(!r.side&&!r.x&&!r.amt) return false;
     const preset={side:r.side||'buy'}; if(r.x) preset.x=r.x; if(r.y&&r.y!==r.x) preset.y=r.y; if(r.party) preset.party=r.party;
     openForm('exchange',preset); await sleep(120);
-    const set=(id,v,ev='input')=>{ const e=$('#'+id); if(!e||v==null) return; e.value=typeof v==='number'?enNum(v):v; e.dispatchEvent(new Event(ev,{bubbles:true})); };
     if(r.party){ const s=$('#f_party'); if(s&&[...s.options].some(o=>o.value===r.party)){ s.value=r.party; s.dispatchEvent(new Event('change',{bubbles:true})); } }
     if(r.x){ set('f_x',r.x,'change'); } if(r.y){ set('f_y',r.y,'change'); } await sleep(60);
     if(r.amt!=null) set('f_xa',r.amt); if(r.rate!=null) set('f_rate',r.rate); await sleep(30); if(r.amt!=null) set('f_xa',r.amt);
     $('#f_xa')?.scrollIntoView({block:'center',behavior:'smooth'}); return true; },
   summary(r){ const M=(a,c)=>a!=null?fmt(a,c||'IQD')+' ':'' ; const pn=r.party?acc(r.party)?.name:'';
+    if(r.mode==='recpay') return `${r.kind==='cashOut'?'پرداخت':'دریافت'} ${M(r.amt,r.cur)}${esc(r.cur||'—')}${pn?(r.kind==='cashOut'?' به ':' از ')+esc(pn):''}${r.fund?(r.kind==='cashOut'?' — از ':' — به ')+esc(acc(r.fund)?.name||''):''}${r.note?' — بابت '+esc(r.note):''}`;
     return `${r.side==='sell'?'فروش':'خرید'} ${M(r.amt,r.x)}${esc(r.x||'—')}${r.rate!=null?' به نرخ '+fmt(r.rate,'IQD'):''}${r.y?' در مقابل '+esc(r.y):''}${pn?' — طرف حساب: '+esc(pn):''}`; }
 };
 function voiceDialog(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   openModal(`<div class="row" style="margin-bottom:8px"><h3>🎙️ فرمان صوتی</h3><button class="btn sm" data-close>بستن</button></div>
    <div class="vcbox"><button type="button" class="vcmic" id="vc_mic" ${SR?'':'disabled'} aria-label="شروع/توقف گوش دادن"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
-   <div class="vcstat" id="vc_stat">${SR?'روی میکروفون بزنید و بگویید؛ مثلاً: «۱۰۰ دلار نجف به نرخ ۱۶۸۰ در مقابل دینار نجف خریدم»':'مرورگر شما تشخیص گفتار ندارد (کروم یا سافاری پیشنهاد می‌شود). می‌توانید فرمان را تایپ کنید.'}</div></div>
-   <div class="field"><label>متن فرمان (قابل ویرایش)</label><textarea id="vc_txt" rows="2" placeholder="مثلاً: ۵۰۰ یورو از حمزه به نرخ ۱۵۵۰ مقابل دینار خریدم"></textarea></div>
+   <div class="vcstat" id="vc_stat">${SR?'روی میکروفون بزنید و بگویید؛ مثلاً: «۱۰۰ دلار نجف به نرخ ۱۶۸۰ در مقابل دینار نجف خریدم» یا «۵ میلیون دینار به حمزه پرداخت کردم»':'مرورگر شما تشخیص گفتار ندارد (کروم یا سافاری پیشنهاد می‌شود). می‌توانید فرمان را تایپ کنید.'}</div></div>
+   <div class="field"><label>متن فرمان (قابل ویرایش)</label><textarea id="vc_txt" rows="2" placeholder="مثلاً: ۵۰۰ یورو از حمزه به نرخ ۱۵۵۰ مقابل دینار خریدم — یا: دو میلیون دینار به زکریا پرداخت کردم"></textarea></div>
    <div id="vc_res" class="vcres" hidden></div>
    <div class="actions"><button type="button" class="btn primary" id="vc_go">اجرا و باز کردن فرم</button></div>
    <p class="mini muted" style="margin-top:8px">فرم فقط پر می‌شود و چیزی خودکار ثبت نمی‌شود؛ بعد از بررسی «ثبت» را بزنید. نام ارزها همان نام‌های تعریف‌شده در «نرخ ارز و تنظیمات» است (مثل «دلار نجف»، «دینار نجف»، «تومان حساب»).</p>`);
   const txt=$('#vc_txt'), stat=$('#vc_stat'), res=$('#vc_res'), mic=$('#vc_mic'); let rec=null, on=false;
-  const show=()=>{ const t=txt.value.trim(); if(!t){ res.hidden=true; return null; } const r=VC.parse(t); res.hidden=false; res.innerHTML=`<b>برداشت برنامه:</b> ${VC.summary(r)}${!r.x||r.amt==null?'<div class="neg mini">مبلغ یا ارز تشخیص داده نشد؛ متن را اصلاح کنید.</div>':''}`; return r; };
+  const show=()=>{ const t=txt.value.trim(); if(!t){ res.hidden=true; return null; } const r=VC.parse(t); res.hidden=false; res.innerHTML=`<b>برداشت برنامه:</b> ${VC.summary(r)}${(r.mode==='recpay'?!r.cur:!r.x)||r.amt==null?'<div class="neg mini">مبلغ یا ارز تشخیص داده نشد؛ متن را اصلاح کنید.</div>':''}${r.mode==='recpay'&&!r.party?'<div class="neg mini">طرف حساب تشخیص داده نشد؛ بعد از باز شدن فرم انتخابش کنید.</div>':''}`; return r; };
   txt.oninput=show;
-  const run=async()=>{ const r=show(); if(!r) return; if(!r.x&&r.amt==null){ stat.textContent='فرمان قابل تشخیص نبود؛ متن را اصلاح کنید.'; return; } closeModal(); await VC.apply(r); toast(VC.summary(r).replace(/<[^>]+>/g,'')); };
+  const run=async()=>{ const r=show(); if(!r) return; if((r.mode==='recpay'?!r.cur:!r.x)&&r.amt==null){ stat.textContent='فرمان قابل تشخیص نبود؛ متن را اصلاح کنید.'; return; } closeModal(); await VC.apply(r); toast(VC.summary(r).replace(/<[^>]+>/g,'')); };
   $('#vc_go').onclick=run;
   if(SR) mic.onclick=()=>{ if(on){ try{ rec.stop(); }catch(e){} return; }
     rec=new SR(); rec.lang='fa-IR'; rec.interimResults=true; rec.maxAlternatives=1; rec.continuous=false;
     let finalT=''; rec.onstart=()=>{ on=true; mic.classList.add('on'); stat.textContent='در حال گوش دادن… صحبت کنید'; };
     rec.onresult=e=>{ let interim=''; for(let i=e.resultIndex;i<e.results.length;i++){ const s=e.results[i][0].transcript; if(e.results[i].isFinal) finalT+=s; else interim+=s; } txt.value=(finalT+' '+interim).trim(); show(); };
     rec.onerror=e=>{ stat.textContent=e.error==='not-allowed'||e.error==='service-not-allowed'?'اجازهٔ میکروفون داده نشده؛ از تنظیمات مرورگر اجازه دهید یا فرمان را تایپ کنید.':e.error==='no-speech'?'صدایی شنیده نشد؛ دوباره امتحان کنید.':'خطا در تشخیص گفتار: '+e.error; };
-    rec.onend=()=>{ on=false; mic.classList.remove('on'); const r=show(); if(r&&r.x&&r.amt!=null){ stat.textContent='تشخیص داده شد؛ در حال باز کردن فرم…'; setTimeout(run,700); } else if(txt.value.trim()) stat.textContent='متن را بررسی و «اجرا» را بزنید.'; };
+    rec.onend=()=>{ on=false; mic.classList.remove('on'); const r=show(); if(r&&(r.x||r.cur)&&r.amt!=null){ stat.textContent='تشخیص داده شد؛ در حال باز کردن فرم…'; setTimeout(run,700); } else if(txt.value.trim()) stat.textContent='متن را بررسی و «اجرا» را بزنید.'; };
     try{ rec.start(); }catch(e){ stat.textContent='شروع میکروفون ممکن نشد.'; } };
   if(SR) setTimeout(()=>mic.click(),150); else txt.focus();
 }
