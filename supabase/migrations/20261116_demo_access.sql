@@ -77,7 +77,7 @@ begin
   insert into public.demo_sessions(token, username, expires_at) values (t, r.username, r.expires_at);
   update public.demo_access set last_login = now(), logins = logins + 1, fails = 0 where id = r.id;
   delete from public.demo_sessions where expires_at < now();
-  return json_build_object('ok', true, 'token', t, 'username', r.username, 'expires_at', r.expires_at);
+  return json_build_object('ok', true, 'token', t, 'username', r.username, 'note', r.note, 'expires_at', r.expires_at);
 end $$;
 
 create or replace function public.demo_check(p_token text)

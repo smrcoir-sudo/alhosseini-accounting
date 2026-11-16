@@ -1388,7 +1388,7 @@ function renderDash(){
   const prof=todays.reduce((s,v)=>s+profitOf(v),0);
   const A=(cls,n,t,go)=>{ const pg=/data-go="(gold|oil)"/.exec(go||''); return pg&&offP(pg[1])?'':`<button class="alert ${n?cls:''}" ${go}><span class="n">${nfFa(0).format(n)}</span><span class="t">${t}</span></button>`; };
   const emp=!S.isAdmin;
-  el.innerHTML=(emp?empDashTop(prof,todays):dashActions()+`
+  el.innerHTML=(emp?empDashTop(prof,todays):(S.settings.demo?empDashTop(prof,todays):dashActions())+`
   <div class="kpis">
     <div class="kpi"><div class="lbl">موجودی صندوق‌ها و بانک‌ها</div><div class="val">${bmoney(balBase(cashTot))}</div><div class="hint">با نرخ میانگین امروز</div></div>
     <div class="kpi"><div class="lbl">سود امروز</div><div class="val ${prof>=0?'pos':'neg'}">${bmoney(prof)}</div><div class="hint"><span class="num">${fmt(todays.length,'IQD')}</span> سند قطعی امروز</div></div>
@@ -3248,7 +3248,7 @@ function loginAlerts(){ const n=_laN, a=loginAlertData(n); let show=true; try{ s
    <div class="filters" style="margin-bottom:6px">${H.field('la_n','تعداد روز بعد',H.input('la_n',String(n),{num:1}))}</div>
    ${row('چک‌های دریافتی',a.rin,'rin')}${row('چک‌های پرداختی',a.rout,'rout')}
    <h4>اسناد معوقه <span class="mini">(حواله‌ها، دستورهای دریافت و پرداخت، صورت‌حساب‌های حمل، سفارش‌های تدارکات و اسناد معلق)</span></h4><div class="la-row">${box('pos','●','امروز',a.due.today,'due.today')}${box('warn','◷',nfFa(0).format(n)+' روز بعد',a.due.next,'due.next')}${box('neg','✕','تاریخ گذشته',a.due.over,'due.over')}${box('neg','✕','منتظر مدارک',a.docs,'docs')}</div>
-   <h4>یادآوری تمدید اجارهٔ شناور</h4><div class="la-row">${box('warn','◷','نزدیک پایان',a.chSoon,'chSoon')}${box('neg','✕','تمام‌شده',a.chExp,'chExp')}</div>
+   ${offP('oil')?'':`<h4>یادآوری تمدید اجارهٔ شناور</h4><div class="la-row">${box('warn','◷','نزدیک پایان',a.chSoon,'chSoon')}${box('neg','✕','تمام‌شده',a.chExp,'chExp')}</div>`}
    <h4>فایل پشتیبان</h4><div class="la-row"><span class="chip ${a.backupDays===null||a.backupDays>7?'neg':'pos'}">${a.backupDays===null?'هنوز از این مرورگر نسخهٔ پشتیبان گرفته نشده':'آخرین پشتیبان: '+nfFa(0).format(a.backupDays)+' روز پیش'}</span>${S.isAdmin?' <button class="btn sm" data-go="settings">گرفتن پشتیبان</button>':''}</div>
    <div id="la_list" style="margin-top:10px"></div>
    <div style="margin-top:12px">${H.check('la_show','بعد از ورود به نرم‌افزار همیشه این پیام نمایش داده شود',show)}</div>`);

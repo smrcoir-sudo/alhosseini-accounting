@@ -2,6 +2,8 @@
    Every visitor gets a private, empty shop (currencies pre-loaded) — nothing leaves the device. */
 (function(){
   const UID='demo-admin';
+  const CK=Object.fromEntries((document.cookie||'').split(/;\s*/).filter(Boolean).map(p=>{ const i=p.indexOf('='); return [p.slice(0,i),decodeURIComponent(p.slice(i+1))]; }));
+  const DUSER=CK.hd_u||'', DNOTE=CK.hd_n||'', DEXP=CK.hd_e?new Date(CK.hd_e):null;
   const DBN='hesabati-demo', ST='docs', FST='files';
   const idb = new Promise((res,rej)=>{ const r=indexedDB.open(DBN,1); r.onupgradeneeded=()=>{ r.result.createObjectStore(ST); r.result.createObjectStore(FST); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
   const tx = async (store,mode,fn)=>{ const d=await idb; return new Promise((res,rej)=>{ const t=d.transaction(store,mode); const s=t.objectStore(store); const out=fn(s); t.oncomplete=()=>res(out&&out.result!==undefined?out.result:out); t.onerror=()=>rej(t.error); }); };
@@ -29,12 +31,40 @@
       await put('vouchers',id,{id,no,type:'opening',ts,createdAt:now+no,by:UID,base:SEED.base,rb:{[c]:per(c)},note,inote:'',lines,party:null,branch:null,person:null,voided:false,pending:false,needDocs:false,
         meta:{acc:a,amt,cur:c,side,src:'demo'},f:{f_acc:a,f_amt:amt.toLocaleString('en-US'),f_cur:c,f_side:side,f_date:day,f_time:'00:01',f_note:note,f_inote:'',f_pending:false,f_needdocs:false,f_again:false},cc:null,dim:null,deal:null,proj:null,items:null}); }
     await put('counters','main',{a:code+100,v:no}); }
+  /* every demo login gets its own cashier box (default cash for the dashboard) with a float and a few of today's deals */
+  async function seedCashier(){ if(!DUSER) return; const id='D_K_'+DUSER.replace(/[^a-z0-9]/gi,'').slice(0,24);
+    const perm=cache.perms?.get(UID)||{};
+    if(cache.accounts?.has(id)){ if(perm.defCash!==id) await put('perms',UID,{...perm,defCash:id,active:true}); return; }
+    const now=Date.now(), d=new Date(); const T=(h,m)=>new Date(d.getFullYear(),d.getMonth(),d.getDate(),h,m).getTime();
+    const label='کشیر '+(DNOTE||DUSER);
+    await put('accounts',id,{id,kind:'cash',name:label,code:String(2000+(cache.accounts?.size||0)),active:true,branch:'',users:[UID],remark:'صندوق نمایشی کاربر '+DUSER,createdAt:now,updatedAt:now});
+    await put('perms',UID,{...perm,defCash:id,active:true,updatedAt:now});
+    const C=Object.fromEntries((SEED.currencies||[]).map(c=>[c.code,c])); const per=c=>{ const x=C[c]; if(!x) return 1; return x.q==='bc'?(+x.buy||1):1/(+x.buy||1); };
+    const ctr=cache.counters?.get('main')||{}; let no=+ctr.v||0; const B=SEED.base;
+    const base=(extra)=>({cc:null,dim:null,proj:null,items:null,deal:null,branch:null,person:null,voided:false,pending:false,needDocs:false,inote:'',note:'',by:UID,base:B,...extra});
+    const vid=()=>'VK'+id.slice(4,12).toUpperCase()+String(++no).padStart(4,'0');
+    // float (opening balance of the cashier box)
+    for(const [c,amt] of [['USD-NAJAF',5000],['IQD-NAJAF',15000000],['IRT-NAJAF',200000000]]){ const v=vid();
+      await put('vouchers',v,base({id:v,no,type:'opening',ts:T(8,0),createdAt:now+no,rb:{[c]:per(c)},note:'موجودی اول روز '+label,lines:[{a:id,c,dr:amt,cr:0},{a:'SYS_EQUITY',c,dr:0,cr:amt}],party:null,meta:{acc:id,amt,cur:c,side:'dr',src:'demo'}})); }
+    // exchange deals: [hh,mm, side, x, xa, y, rate, party]
+    const deals=[[9,15,'buy','USD-NAJAF',1000,'IQD-NAJAF',1665,'WALKIN'],[9,40,'sell','USD-NAJAF',500,'IQD-NAJAF',1675,'D_C1'],[10,5,'sell','USD-NAJAF',300,'IRT-NAJAF',168000,'D_C3'],[10,30,'buy','USD-NAJAF',200,'IRT-NAJAF',166500,'WALKIN'],[11,10,'buy','EUR-NAJAF',400,'IQD-NAJAF',1815,'D_C4']];
+    for(const [h,m,side,x,xa,y,rate,party] of deals){ const v=vid(); const ya=Math.round(xa*rate);
+      const lines=side==='buy'?[{a:id,c:x,dr:xa,cr:0},{a:'SYS_POS',c:x,dr:0,cr:xa},{a:'SYS_POS',c:y,dr:ya,cr:0},{a:id,c:y,dr:0,cr:ya}]
+                              :[{a:'SYS_POS',c:x,dr:xa,cr:0},{a:id,c:x,dr:0,cr:xa},{a:id,c:y,dr:ya,cr:0},{a:'SYS_POS',c:y,dr:0,cr:ya}];
+      await put('vouchers',v,base({id:v,no,type:'exchange',ts:T(h,m),createdAt:now+no,rb:{[x]:per(x),[y]:per(y)},lines,party,deal:side==='buy'?{ia:xa,ic:x,oa:ya,oc:y}:{ia:ya,ic:y,oa:xa,oc:x},
+        meta:{x,y,op:'*',xa,ya,amt:xa,cur:x,rate,side,pay:id,recv:id,payM:'cash',recvM:'cash',comm:0,commp:null,ben:null,mix:null}})); }
+    // cash in / out with customers
+    for(const [h,m,kind,c,amt,party,note] of [[11,45,'cashIn','USD-NAJAF',2000,'D_C2','واریز نقدی به حساب'],[12,20,'cashOut','IRT-NAJAF',10000000,'D_C3','پرداخت نقدی از حساب']]){ const v=vid();
+      const lines=kind==='cashIn'?[{a:id,c,dr:amt,cr:0},{a:party,c,dr:0,cr:amt}]:[{a:party,c,dr:amt,cr:0},{a:id,c,dr:0,cr:amt}];
+      await put('vouchers',v,base({id:v,no,type:'recpay',ts:T(h,m),createdAt:now+no,rb:{[c]:per(c)},note,lines,party,meta:{amt,cur:c,ref:'',comm:0,cost:0,fund:id,kind,invref:null}})); }
+    await put('counters','main',{...ctr,v:no}); }
   const ready=(async()=>{
     const d=await idb; await new Promise((res,rej)=>{ const t=d.transaction(ST,'readonly'); const r=t.objectStore(ST).openCursor();
       r.onsuccess=()=>{ const c=r.result; if(!c){ res(); return; } const k=String(c.key); const i=k.indexOf('/'); const col=k.slice(0,i), id=k.slice(i+1); (cache[col]||(cache[col]=new Map())).set(id,c.value); c.continue(); }; r.onerror=()=>rej(r.error); });
     const st=cache.app?.get('settings');
     if(!st){ await put('app','settings',{shop:'حساباتي', base:SEED.base, currencies:SEED.currencies, off:SEED.off||[], seedV:SEED.v||1, demo:true, createdAt:Date.now()}); await seedData(); }
     else if(st.demo && (st.seedV||1)<(SEED.v||1)) await put('app','settings',{...st, off:SEED.off||[], currencies:SEED.currencies, seedV:SEED.v});
+    await seedCashier();
     return true; })();
 
   function docRef(col,id){ return {
@@ -50,8 +80,6 @@
     collection(col){ return { doc:id=>docRef(col,id), async get(){ await ready; return colSnap(col); },
       onSnapshot(cb,err){ (colL[col]||(colL[col]=new Set())).add(cb); ready.then(()=>cb(colSnap(col))).catch(e=>err&&err(e)); return ()=>colL[col].delete(cb); } }; } };
 
-  const CK=Object.fromEntries((document.cookie||'').split(/;\s*/).filter(Boolean).map(p=>{ const i=p.indexOf('='); return [p.slice(0,i),decodeURIComponent(p.slice(i+1))]; }));
-  const DUSER=CK.hd_u||'', DEXP=CK.hd_e?new Date(CK.hd_e):null;
   const user={ id:async()=>UID, name:async()=>DUSER||'مدیر', email:async()=>'', can:async()=>true, canEdit:async()=>true, async profiles(ids){ const o={}; (ids||[]).forEach(i=>{ if(i===UID) o[i]={name:DUSER||'مدیر'}; }); return o; } };
   const downloads={ async save({filename,data,type}){ const blob=data instanceof Blob?data:new Blob([data],{type:type||(/\.csv$/i.test(filename)?'text/csv;charset=utf-8':/\.html?$/i.test(filename)?'text/html;charset=utf-8':'application/octet-stream')});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000); } };

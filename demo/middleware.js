@@ -51,7 +51,7 @@ apply(get());
   return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } });
 }
 const redirect = (to, extra = []) => { const h = new Headers({ Location: to, 'cache-control': 'no-store' }); extra.forEach(c => h.append('Set-Cookie', c)); return new Response(null, { status: 303, headers: h }); };
-const clear = ['hd_s=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax', 'hd_u=; Path=/; Max-Age=0; Secure; SameSite=Lax', 'hd_e=; Path=/; Max-Age=0; Secure; SameSite=Lax'];
+const clear = ['hd_s=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax', 'hd_u=; Path=/; Max-Age=0; Secure; SameSite=Lax', 'hd_e=; Path=/; Max-Age=0; Secure; SameSite=Lax', 'hd_n=; Path=/; Max-Age=0; Secure; SameSite=Lax'];
 
 export default async function middleware(req) {
   const url = new URL(req.url);
@@ -64,7 +64,7 @@ export default async function middleware(req) {
     let r; try { r = await rpc('demo_login', { p_user: u, p_pass: p }); } catch (e) { return redirect('/login?m=err&u=' + encodeURIComponent(u)); }
     if (!r || !r.ok) return redirect('/login?m=' + (r?.err || 'bad') + '&u=' + encodeURIComponent(u));
     const age = Math.max(60, Math.floor((new Date(r.expires_at).getTime() - Date.now()) / 1000));
-    return redirect('/', [`hd_s=${r.token}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`, `hd_u=${encodeURIComponent(r.username)}; Path=/; Max-Age=${age}; Secure; SameSite=Lax`, `hd_e=${encodeURIComponent(r.expires_at)}; Path=/; Max-Age=${age}; Secure; SameSite=Lax`]);
+    return redirect('/', [`hd_s=${r.token}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`, `hd_u=${encodeURIComponent(r.username)}; Path=/; Max-Age=${age}; Secure; SameSite=Lax`, `hd_e=${encodeURIComponent(r.expires_at)}; Path=/; Max-Age=${age}; Secure; SameSite=Lax`, `hd_n=${encodeURIComponent(String(r.note || '').slice(0, 60))}; Path=/; Max-Age=${age}; Secure; SameSite=Lax`]);
   }
   const tok = cookies(req).hd_s;
   let ok = false;
