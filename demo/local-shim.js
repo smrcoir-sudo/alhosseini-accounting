@@ -19,7 +19,7 @@
   async function put(col,id,data){ const m=cache[col]||(cache[col]=new Map()); if(data===undefined) m.delete(id); else m.set(id,clone(data)); emit(col,id);
     await tx(ST,'readwrite',s=>data===undefined?s.delete(col+'/'+id):s.put(data,col+'/'+id)); }
 
-  const SEED = window.__DEMO_SEED || {base:'USD-NAJAF',currencies:[]};
+  const SEED = window.__DEMO_SEED || {base:'USD',currencies:[]};
   /* sample customers, partners, cash boxes, banks + fictional opening balances (USD / Toman / EUR) */
   async function seedData(){ const now=Date.now(), d=new Date(), pad=n=>String(n).padStart(2,'0'); const day=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     const ts=new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,1).getTime(); let code=1000;
@@ -44,17 +44,17 @@
     const base=(extra)=>({cc:null,dim:null,proj:null,items:null,deal:null,branch:null,person:null,voided:false,pending:false,needDocs:false,inote:'',note:'',by:UID,base:B,...extra});
     const vid=()=>'VK'+id.slice(4,12).toUpperCase()+String(++no).padStart(4,'0');
     // float (opening balance of the cashier box)
-    for(const [c,amt] of [['USD-NAJAF',5000],['IQD-NAJAF',15000000],['IRT-NAJAF',200000000]]){ const v=vid();
+    for(const [c,amt] of [['USD',5000],['IQD',15000000],['IRT',200000000]]){ const v=vid();
       await put('vouchers',v,base({id:v,no,type:'opening',ts:T(8,0),createdAt:now+no,rb:{[c]:per(c)},note:'موجودی اول روز '+label,lines:[{a:id,c,dr:amt,cr:0},{a:'SYS_EQUITY',c,dr:0,cr:amt}],party:null,meta:{acc:id,amt,cur:c,side:'dr',src:'demo'}})); }
     // exchange deals: [hh,mm, side, x, xa, y, rate, party]
-    const deals=[[9,15,'buy','USD-NAJAF',1000,'IQD-NAJAF',1665,'WALKIN'],[9,40,'sell','USD-NAJAF',500,'IQD-NAJAF',1675,'D_C1'],[10,5,'sell','USD-NAJAF',300,'IRT-NAJAF',168000,'D_C3'],[10,30,'buy','USD-NAJAF',200,'IRT-NAJAF',166500,'WALKIN'],[11,10,'buy','EUR-NAJAF',400,'IQD-NAJAF',1815,'D_C4']];
+    const deals=[[9,15,'buy','USD',1000,'IQD',1665,'WALKIN'],[9,40,'sell','USD',500,'IQD',1675,'D_C1'],[10,5,'sell','USD',300,'IRT',168000,'D_C3'],[10,30,'buy','USD',200,'IRT',166500,'WALKIN'],[11,10,'buy','EUR',400,'IQD',1815,'D_C4']];
     for(const [h,m,side,x,xa,y,rate,party] of deals){ const v=vid(); const ya=Math.round(xa*rate);
       const lines=side==='buy'?[{a:id,c:x,dr:xa,cr:0},{a:'SYS_POS',c:x,dr:0,cr:xa},{a:'SYS_POS',c:y,dr:ya,cr:0},{a:id,c:y,dr:0,cr:ya}]
                               :[{a:'SYS_POS',c:x,dr:xa,cr:0},{a:id,c:x,dr:0,cr:xa},{a:id,c:y,dr:ya,cr:0},{a:'SYS_POS',c:y,dr:0,cr:ya}];
       await put('vouchers',v,base({id:v,no,type:'exchange',ts:T(h,m),createdAt:now+no,rb:{[x]:per(x),[y]:per(y)},lines,party,deal:side==='buy'?{ia:xa,ic:x,oa:ya,oc:y}:{ia:ya,ic:y,oa:xa,oc:x},
         meta:{x,y,op:'*',xa,ya,amt:xa,cur:x,rate,side,pay:id,recv:id,payM:'cash',recvM:'cash',comm:0,commp:null,ben:null,mix:null}})); }
     // cash in / out with customers
-    for(const [h,m,kind,c,amt,party,note] of [[11,45,'cashIn','USD-NAJAF',2000,'D_C2','واریز نقدی به حساب'],[12,20,'cashOut','IRT-NAJAF',10000000,'D_C3','پرداخت نقدی از حساب']]){ const v=vid();
+    for(const [h,m,kind,c,amt,party,note] of [[11,45,'cashIn','USD',2000,'D_C2','واریز نقدی به حساب'],[12,20,'cashOut','IRT',10000000,'D_C3','پرداخت نقدی از حساب']]){ const v=vid();
       const lines=kind==='cashIn'?[{a:id,c,dr:amt,cr:0},{a:party,c,dr:0,cr:amt}]:[{a:party,c,dr:amt,cr:0},{a:id,c,dr:0,cr:amt}];
       await put('vouchers',v,base({id:v,no,type:'recpay',ts:T(h,m),createdAt:now+no,rb:{[c]:per(c)},note,lines,party,meta:{amt,cur:c,ref:'',comm:0,cost:0,fund:id,kind,invref:null}})); }
     await put('counters','main',{...ctr,v:no}); }
@@ -63,7 +63,9 @@
       r.onsuccess=()=>{ const c=r.result; if(!c){ res(); return; } const k=String(c.key); const i=k.indexOf('/'); const col=k.slice(0,i), id=k.slice(i+1); (cache[col]||(cache[col]=new Map())).set(id,c.value); c.continue(); }; r.onerror=()=>rej(r.error); });
     const st=cache.app?.get('settings');
     if(!st){ await put('app','settings',{shop:'حساباتي', base:SEED.base, currencies:SEED.currencies, off:SEED.off||[], seedV:SEED.v||1, demo:true, createdAt:Date.now()}); await seedData(); }
-    else if(st.demo && (st.seedV||1)<(SEED.v||1)) await put('app','settings',{...st, off:SEED.off||[], currencies:SEED.currencies, seedV:SEED.v});
+    else if(st.demo && (st.seedV||1)<(SEED.v||1)){ /* demo data format changed: start this browser over with fresh sample data */
+      await tx(ST,'readwrite',s=>s.clear()); Object.keys(cache).forEach(k=>delete cache[k]);
+      await put('app','settings',{shop:'حساباتي', base:SEED.base, currencies:SEED.currencies, off:SEED.off||[], seedV:SEED.v||1, demo:true, createdAt:Date.now()}); await seedData(); }
     await seedCashier();
     return true; })();
 
