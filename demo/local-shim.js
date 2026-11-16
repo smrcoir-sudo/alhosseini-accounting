@@ -20,7 +20,9 @@
   const ready=(async()=>{
     const d=await idb; await new Promise((res,rej)=>{ const t=d.transaction(ST,'readonly'); const r=t.objectStore(ST).openCursor();
       r.onsuccess=()=>{ const c=r.result; if(!c){ res(); return; } const k=String(c.key); const i=k.indexOf('/'); const col=k.slice(0,i), id=k.slice(i+1); (cache[col]||(cache[col]=new Map())).set(id,c.value); c.continue(); }; r.onerror=()=>rej(r.error); });
-    if(!cache.app?.get('settings')) await put('app','settings',{shop:'حساباتي', base:SEED.base, currencies:SEED.currencies, demo:true, createdAt:Date.now()});
+    const st=cache.app?.get('settings');
+    if(!st) await put('app','settings',{shop:'حساباتي', base:SEED.base, currencies:SEED.currencies, off:SEED.off||[], demo:true, createdAt:Date.now()});
+    else if(st.demo && !Array.isArray(st.off)) await put('app','settings',{...st, off:SEED.off||[]});
     return true; })();
 
   function docRef(col,id){ return {
