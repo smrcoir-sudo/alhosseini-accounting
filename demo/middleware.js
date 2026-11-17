@@ -66,6 +66,15 @@ export default async function middleware(req) {
     const age = Math.max(60, Math.floor((new Date(r.expires_at).getTime() - Date.now()) / 1000));
     return redirect('/', [`hd_s=${r.token}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`, `hd_u=${encodeURIComponent(r.username)}; Path=/; Max-Age=${age}; Secure; SameSite=Lax`, `hd_e=${encodeURIComponent(r.expires_at)}; Path=/; Max-Age=${age}; Secure; SameSite=Lax`, `hd_n=${encodeURIComponent(String(r.note || '').slice(0, 60))}; Path=/; Max-Age=${age}; Secure; SameSite=Lax`]);
   }
+  if (url.pathname === '/api/assistant') {
+    const t = cookies(req).hd_s;
+    if (req.method !== 'POST' || !t || !/^[0-9a-f]{48}$/.test(t)) return new Response(JSON.stringify({ ok: false, err: 'auth' }), { status: 401, headers: { 'content-type': 'application/json' } });
+    const body = (await req.text()).slice(0, 40000);
+    try {
+      const r = await fetch(`${SB_URL}/functions/v1/assistant`, { method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json', 'x-demo-token': t }, body });
+      return new Response(await r.text(), { status: r.status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+    } catch (e) { return new Response(JSON.stringify({ ok: false, err: 'upstream' }), { status: 502, headers: { 'content-type': 'application/json' } }); }
+  }
   const tok = cookies(req).hd_s;
   let ok = false;
   if (tok && /^[0-9a-f]{48}$/.test(tok)) { try { ok = await rpc('demo_check', { p_token: tok }) === true; } catch (e) { ok = false; } }

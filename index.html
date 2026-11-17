@@ -55,6 +55,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 .topin{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:12px 6px}
 .brand{display:flex;align-items:center;gap:10px;min-width:0}
 .off-gold [data-sec="gold"],.off-gold #w_x_gp,.off-gold #w_x_gm,.off-gold #w_x_gpt,.off-oil [data-sec="oil"],.off-oil #w_x_od{display:none!important}
+.ai-btn{margin-inline-end:6px}.ailog{max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:8px;margin:6px 0 10px;position:relative}.aih{display:flex;flex-direction:column;gap:8px}
+.aim.me{align-self:flex-start;background:var(--accent,#9a6a1c);color:#fff;padding:8px 12px;border-radius:12px 12px 12px 4px;max-width:85%}
+.aic{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--panel2,#f6f8fa)}.aic ol{margin:6px 0 0;padding-inline-start:20px;line-height:1.9}.aic.ai{border-color:#c9a24a;background:rgba(201,162,74,.08)}
+.aii{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed var(--line)}.aii:first-of-type{border-top:0}
+.aisug{margin-bottom:8px}.aisug .chip{cursor:pointer}.aiin{display:flex;gap:8px}.aiin input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg,#fff);color:inherit}
 .mark{width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:18px;flex:none}
 .brand h1{margin:0;font-size:17px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brand small{display:block;color:var(--head-muted);font-size:12px;font-weight:500}
@@ -273,7 +278,7 @@ textarea{min-height:64px;resize:vertical}
   <header class="top">
     <div class="wrap topin">
       <div class="brand" role="link" tabindex="0" title="داشبورد" data-brandhome><img src="/logo.png" alt="الحسینی" class="hlogo" width="30" height="54"><div><h1 id="shopName">دفتر صرافی</h1><small>حسابداری صرافی: خرید و فروش ارز، حواله، چک، بانک و حساب مشتریان</small></div></div>
-      <div class="topr"><div class="status"><span class="dot" id="dot"></span><span id="statusText">در حال اتصال…</span></div><button type="button" class="vc-btn" id="vcBtn" title="فرمان صوتی" aria-label="فرمان صوتی"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button type="button" class="mnav-btn" id="mnavBtn" aria-label="منو" aria-expanded="false"><span></span><span></span><span></span></button></div>
+      <div class="topr"><div class="status"><span class="dot" id="dot"></span><span id="statusText">در حال اتصال…</span></div><button type="button" class="vc-btn ai-btn" id="aiBtn" title="دستیار" aria-label="دستیار"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z"/></svg></button><button type="button" class="vc-btn" id="vcBtn" title="فرمان صوتی" aria-label="فرمان صوتی"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button type="button" class="mnav-btn" id="mnavBtn" aria-label="منو" aria-expanded="false"><span></span><span></span><span></span></button></div>
     </div>
     <nav class="tabs wrap" id="tabs">
       <button class="tab" data-p="dash">داشبورد</button>
@@ -5006,6 +5011,96 @@ function voiceDialog(){
     try{ rec.start(); }catch(e){ stat.textContent='شروع میکروفون ممکن نشد.'; } };
   if(SR) setTimeout(()=>mic.click(),150); else txt.focus();
 }
+/* ===== دستیار: the user types (or says) what they want to do; we point to where it is / how to record it =====
+   Local index (menus, quick forms, reports, tabs + how-to guides) answers instantly and offline.
+   When the server has an AI key, a Claude answer (in the UI language) is added under it. */
+const AI={
+  STOP:new Set('چطور چگونه چطوری کجا کجاست کجای میخوام میخواهم می‌خواهم میخام خواستم باید بکنم کنم کنیم کرد کردن کن رو را یک یه به از در با برای که این اون آن هست است چی چه چیه چیست میشه می‌شه میتونم می‌تونم میتوانم بتونم بتوانم لطفا لطفاً ثبت ثبتش کجا؟ و یا هم من ما شما بزنم ببینم پیدا کنم پیدا وارد کجاس بگو بده بفرما what how where can i do the a to كيف أين اين وين اريد أريد ممكن هل في من على عن'.split(' ')),
+  SYN:{'مشتری':'مشتری طرف حساب','طرف':'طرف حساب مشتری','همکار':'همکار نماینده','صرافی':'همکار','کشیر':'صندوق','صندوق':'صندوق کشیر','موجودی':'مانده موجودی','مانده':'مانده موجودی','بالانس':'مانده','باقیمانده':'مانده','بدهی':'بدهکاران بستانکاران مانده','طلب':'بدهکاران مانده','گردش':'صورت‌حساب','ریز':'صورت‌حساب','صورتحساب':'صورت‌حساب','استیتمنت':'صورت‌حساب','فیش':'رسید فیش','رسید':'رسید چاپ','چاپ':'چاپ رسید','پرینت':'چاپ رسید','بکاپ':'پشتیبان','backup':'پشتیبان','نسخه':'پشتیبان','پشتیبانی':'پشتیبان','قیمت':'نرخ','ریت':'نرخ','نرخ':'نرخ ارز','دلار':'ارز','دینار':'ارز','تومان':'ارز','یورو':'ارز','بخرم':'خرید','خریدم':'خرید','بفروشم':'فروش','فروختم':'فروش','معامله':'خرید فروش معاملات','بفرستم':'ارسال','فرستادن':'ارسال','واتساپ':'واتساپ ارسال','واتس':'واتساپ','پاک':'ابطال حذف','حذف':'ابطال حذف','اشتباه':'ویرایش ابطال','اصلاح':'ویرایش','تغییر':'ویرایش','عوض':'ویرایش','جابجا':'انتقال','جابه‌جا':'انتقال','واریز':'واریز بانک دریافت','برداشت':'برداشت بانک','حقوق':'حقوق','کارمند':'کاربر کارمند','کاربر':'کاربر دسترسی','رمز':'کاربر','دسترسی':'دسترسی کاربر','سود':'سود','ضرر':'سود','زیان':'سود','افتتاحیه':'مانده افتتاحیه','اول':'افتتاحیه','هزینه':'هزینه','خرج':'هزینه','اجاره':'هزینه','برق':'هزینه','زبان':'شخصی‌سازی زبان','رنگ':'شخصی‌سازی','تم':'شخصی‌سازی','صدا':'فرمان صوتی','صوتی':'فرمان صوتی','میکروفون':'فرمان صوتی',
+    'شراء':'خرید','اشتري':'خرید','بيع':'فروش','ابيع':'فروش','حوالة':'حواله','حواله':'حواله','زبون':'مشتری','زبائن':'مشتری','عميل':'مشتری','رصيد':'مانده','كشف':'صورت‌حساب','تحويل':'انتقال','صندوق':'صندوق','قاصة':'صندوق','مصروف':'هزینه','مصاريف':'هزینه','صك':'چک','شيك':'چک','سعر':'نرخ','طباعة':'چاپ','الغاء':'ابطال','تعديل':'ویرایش','مستخدم':'کاربر','ربح':'سود','تقرير':'گزارش',
+    'buy':'خرید','sell':'فروش','customer':'مشتری','client':'مشتری','balance':'مانده','statement':'صورت‌حساب','transfer':'انتقال','remittance':'حواله','cheque':'چک','check':'چک','expense':'هزینه','rate':'نرخ','print':'چاپ','receipt':'رسید','delete':'ابطال','edit':'ویرایش','user':'کاربر','profit':'سود','report':'گزارش','cash':'صندوق','bank':'بانک'},
+  /* how-to guides; ref = a regex on the label of a real menu item, so the path shown is always the app's own */
+  G:()=>[
+    {t:'ثبت خرید یا فروش ارز',k:'خرید فروش ارز معامله صرافی تبدیل',ref:/^خرید و فروش$|^خرید ارز$/,steps:['در داشبورد کارت سبز «خرید و فروش» را بزنید (یا منوی «سند جدید» ← «خرید و فروش»).','بالای فرم «خرید» یا «فروش» را انتخاب کنید.','ارز معامله و ارز مقابل را انتخاب کنید؛ مبلغ و نرخ را بنویسید — معادل خودکار حساب می‌شود.','طرف حساب را انتخاب کنید؛ برای مشتری گذری خالی بگذارید و در صورت نیاز «مشخصات مراجعه‌کننده» را باز کنید.','صندوق دریافت و پرداخت را بررسی کنید؛ کارمزد/تخفیف در خط جمع‌شده زیر فرم است.','«ثبت» را بزنید؛ رسید باز می‌شود و قابل چاپ و ارسال است.'],tip:'می‌توانید با فرمان صوتی هم بگویید: «۱۰۰ دلار به نرخ ۱۶۷۰ مقابل دینار خریدم».'},
+    {t:'دریافت یا پرداخت نقدی به مشتری',k:'دریافت پرداخت نقد نقدی وجه پول دادن گرفتن مشتری',ref:/^نقد و چک$|^دریافت نقدی$/,steps:['منوی «سند جدید» ← «نقد و چک» (یا کارت قرمز «پرداخت نقدی» در داشبورد).','نوع را انتخاب کنید: دریافت نقدی، پرداخت نقدی، دریافت چک یا پرداخت چک.','طرف حساب، ارز و مبلغ را وارد کنید و صندوق را بررسی کنید.','در صورت نیاز شرح بنویسید و «ثبت» را بزنید.'],tip:'فرمان صوتی: «۵ میلیون دینار به علی پرداخت کردم».'},
+    {t:'انتقال بین صندوق‌ها یا بانک',k:'انتقال صندوق کشیر بانک جابجایی پول',ref:/^انتقال بین صندوق‌ها$/,steps:['در داشبورد کارت آبی «انتقال بین صندوق‌ها» را بزنید.','صندوق یا بانک مبدأ و مقصد را انتخاب کنید.','ارز و مبلغ را وارد کنید و «ثبت» را بزنید.'],tip:'فرمان صوتی: «۱۰ میلیون دینار از کشیر صفار به صندوق دفتر منتقل کردم».'},
+    {t:'انتقال از حساب یک مشتری به مشتری دیگر',k:'انتقال حساب به حساب مشتری طرف',ref:/^انتقال به حساب$|^انتقال بین حساب‌ها$/,steps:['منوی «سند جدید» ← «انتقال به حساب».','حساب مبدأ (بدهکارشونده) و حساب مقصد را انتخاب کنید.','ارز و مبلغ را بنویسید و «ثبت» را بزنید.']},
+    {t:'ارسال حواله (حوالهٔ خروجی)',k:'حواله ارسال خروجی فرستادن پول شهر',ref:/^ارسال حواله$|^حوالهٔ خروجی$|^حواله خروجی$/,steps:['منوی «سند جدید» ← «ارسال حواله».','فرستنده (طرف حساب)، همکار/نماینده‌ای که حواله را پرداخت می‌کند و ذی‌نفع را وارد کنید.','ارز، مبلغ و کارمزد را بنویسید و «ثبت» را بزنید.','وضعیت حواله را در تب «حواله‌ها» دنبال کنید.']},
+    {t:'دریافت حواله و پرداخت آن به ذی‌نفع',k:'حواله ورودی دریافت پرداخت ذینفع',ref:/^دریافت حواله$|^حوالهٔ ورودی$|^حواله ورودی$/,steps:['منوی «سند جدید» ← «دریافت حواله» و مشخصات حواله را ثبت کنید.','هنگام مراجعهٔ ذی‌نفع، در تب «حواله‌ها» حواله را پیدا کنید و گزینهٔ پرداخت را بزنید.']},
+    {t:'ثبت هزینهٔ دفتر',k:'هزینه خرج اجاره برق قبض دفتر مصرف',ref:/^هزینه$/,steps:['در داشبورد کارت نارنجی «هزینه‌ها» را بزنید (یا «ثبت سند» ← «سایر» ← «هزینه»).','نوع هزینه، ارز، مبلغ و صندوق پرداخت را وارد کنید.','«ثبت» را بزنید.']},
+    {t:'تعریف مشتری جدید',k:'مشتری جدید تعریف افزودن اضافه حساب طرف',ref:/^حساب جدید \(مشتری\)$/,steps:['منوی «معرفی‌ها» ← «حساب جدید (مشتری)» (یا تب «حساب‌ها» ← افزودن).','نام، تلفن و در صورت نیاز مشخصات هویتی را وارد کنید.','«ذخیره» را بزنید؛ از این به بعد در فهرست طرف حساب‌ها هست.'],tip:'در فرم خرید و فروش هم با تایپ نام می‌توانید مشتری را جست‌وجو کنید.'},
+    {t:'تعریف همکار / صرافی طرف معامله',k:'همکار نماینده صرافی جدید',ref:/^حساب جدید \(همکار/,steps:['منوی «معرفی‌ها» ← «حساب جدید (همکار / نماینده)».','نام و اطلاعات تماس را وارد و «ذخیره» کنید.']},
+    {t:'تعریف بانک یا صندوق جدید',k:'بانک صندوق کشیر جدید تعریف',ref:/^حساب جدید \(بانک\)$/,steps:['منوی «معرفی‌ها» ← «حساب جدید (بانک)» یا «صندوق».','نام را وارد و «ذخیره» کنید.','برای اینکه صندوق پیش‌فرض یک کارمند شود: «مدیریت» ← «کاربران» ← ویرایش کاربر ← «صندوق پیش‌فرض».']},
+    {t:'دیدن صورت‌حساب (گردش حساب) یک مشتری',k:'صورت‌حساب گردش ریز حساب مشتری تاریخچه',ref:/^صورت‌حساب$/,steps:['منوی «گزارش‌ها» ← «صورت‌حساب».','حساب را انتخاب و بازهٔ تاریخ را تعیین کنید.','از دکمه‌های پایین برای چاپ، خروجی Excel یا ارسال استفاده کنید.']},
+    {t:'دیدن مانده و وضعیت حساب یک شخص',k:'مانده موجودی وضعیت حساب شخص مشتری چقدر بدهکار بستانکار',ref:/^وضعیت حساب شخص$/,steps:['منوی «گزارش‌ها» ← «وضعیت حساب شخص».','شخص را انتخاب کنید؛ مانده هر ارز و معادل کل نمایش داده می‌شود.','دکمه‌های واتساپ، تصویر، چاپ و صورت‌حساب همان‌جا هستند.']},
+    {t:'ارسال وضعیت حساب مشتری در واتساپ',k:'واتساپ ارسال وضعیت مانده مشتری پیام',ref:/^وضعیت حساب شخص$/,steps:['منوی «گزارش‌ها» ← «وضعیت حساب شخص» و شخص را انتخاب کنید.','دکمهٔ «واتساپ» را بزنید؛ متن آماده با شمارهٔ مشتری باز می‌شود.','یا با دکمهٔ «تصویر» عکس کارت را بگیرید و بفرستید.']},
+    {t:'دیدن اسناد قبلی یک مشتری',k:'اسناد قبلی سوابق معاملات قبلی مشتری تاریخچه',steps:['در فرم خرید و فروش یا دریافت و پرداخت، طرف حساب را انتخاب کنید.','کنار ماندهٔ او دکمهٔ «اسناد قبلی» را بزنید.']},
+    {t:'ویرایش یا ابطال یک سند ثبت‌شده',k:'ویرایش اصلاح ابطال حذف سند اشتباه',steps:['سند را از «داشبورد» (آخرین اسناد) یا «گزارش‌ها» ← «معاملات روزانه» پیدا کنید و رویش بزنید.','در پنجرهٔ رسید «ویرایش» یا «ابطال سند» را بزنید.','ابطال سند را پاک نمی‌کند؛ با علامت باطل در سوابق می‌ماند.'],tip:'اگر دسترسی ویرایش ندارید، از مدیر بخواهید.'},
+    {t:'چاپ یا ارسال رسید یک سند',k:'چاپ رسید فیش پرینت کپی',steps:['روی سند در لیست بزنید تا رسید باز شود.','«دانلود رسید برای چاپ» یا «کپی متن رسید» را بزنید.']},
+    {t:'تغییر نرخ ارزها',k:'نرخ قیمت ریت ارز تغییر امروز',ref:/^نرخ ارز و تنظیمات$/,steps:['تب «نرخ ارز و تنظیمات».','نرخ خرید و فروش هر ارز را در جدول ویرایش کنید و ذخیره کنید.']},
+    {t:'افزودن ارز جدید',k:'ارز جدید افزودن اضافه تعریف',ref:/^نرخ ارز و تنظیمات$/,steps:['تب «نرخ ارز و تنظیمات».','دکمهٔ افزودن ارز را بزنید و از فهرست جست‌وجو کنید یا کد و نام دلخواه بنویسید.','نرخ را وارد و ذخیره کنید.']},
+    {t:'ثبت ماندهٔ اول دوره (افتتاحیه)',k:'مانده اول دوره افتتاحیه موجودی اولیه شروع',ref:/^مانده افتتاحیه$/,steps:['تب «ثبت سند» ← گروه «سایر» ← «مانده افتتاحیه».','حساب، ارز، مبلغ و بدهکار/بستانکار بودن را وارد و «ثبت» کنید.']},
+    {t:'ثبت چک دریافتی یا پرداختی',k:'چک صک دریافت پرداخت سررسید',ref:/^نقد و چک$/,steps:['منوی «سند جدید» ← «نقد و چک» و نوع «دریافت چک» یا «پرداخت چک» را انتخاب کنید.','شماره، تاریخ سررسید و بانک را وارد و «ثبت» کنید.','وضعیت چک‌ها در تب «چک و دستورها» است.']},
+    {t:'دستور پرداخت یا دریافت',k:'دستور پرداخت دریافت سفارش',ref:/^دستور دریافت و پرداخت$/,steps:['منوی «سند جدید» ← «دستور دریافت و پرداخت».','طرف حساب، مبلغ و تاریخ را وارد کنید؛ فهرست آن در «پروسه‌ها» است.']},
+    {t:'افزودن کاربر (کارمند) و تعیین دسترسی',k:'کاربر کارمند جدید دسترسی رمز ورود',ref:/^کاربران و سطوح دسترسی$/,steps:['منوی «مدیریت سیستم» ← «کاربران و سطوح دسترسی».','کاربر جدید بسازید؛ رمز اولیه فقط برای شما نمایش داده می‌شود.','دسترسی‌ها و «صندوق پیش‌فرض» را در ویرایش کاربر تعیین کنید.'],admin:1},
+    {t:'تعیین صندوق پیش‌فرض کارمند',k:'صندوق پیش‌فرض کشیر کارمند',ref:/^کاربران و سطوح دسترسی$/,steps:['منوی «مدیریت سیستم» ← «کاربران و سطوح دسترسی».','کاربر را ویرایش کنید و «صندوق پیش‌فرض» را انتخاب کنید.'],admin:1},
+    {t:'گرفتن نسخهٔ پشتیبان',k:'پشتیبان بکاپ نسخه ذخیره دانلود',ref:/^نرخ ارز و تنظیمات$/,steps:['تب «نرخ ارز و تنظیمات» ← بخش «پشتیبان‌گیری».','«دانلود نسخهٔ پشتیبان» را بزنید یا پوشهٔ لپ‌تاپ را برای ذخیرهٔ خودکار انتخاب کنید.'],admin:1},
+    {t:'دیدن سود معاملات',k:'سود ضرر زیان امروز معاملات',ref:/^خلاصهٔ معاملات ارزی$/,steps:['سود امروز در کارت «سود امروز» داشبورد هست.','برای جزئیات: منوی «گزارش‌ها» ← «خلاصهٔ معاملات ارزی».']},
+    {t:'موجودی صندوق‌ها و بانک‌ها',k:'موجودی صندوق بانک کشیر نقد چقدر',ref:/^ماندهٔ بانک‌ها و صندوق‌ها$/,steps:['منوی «گزارش‌ها» ← «ماندهٔ بانک‌ها و صندوق‌ها».','موجودی صندوق پیش‌فرض شما در داشبورد هم نمایش داده می‌شود.']},
+    {t:'فهرست بدهکاران و بستانکاران',k:'بدهکاران بستانکاران بدهی طلب',ref:/^بدهکاران و بستانکاران$/,steps:['منوی «گزارش‌ها» ← «بدهکاران و بستانکاران».']},
+    {t:'استفاده از فرمان صوتی',k:'فرمان صوتی صدا میکروفون گفتن',steps:['دکمهٔ میکروفون بالای صفحه را بزنید.','جمله را بگویید، مثلاً «۵۰۰ دلار به نرخ ۱۶۷۰ مقابل دینار فروختم».','فرم پر می‌شود؛ بررسی کنید و «ثبت» را بزنید.']},
+    {t:'ثبت حقوق کارمندان',k:'حقوق دستمزد کارمندان پرسنل لیست حقوق',ref:/^لیست حقوق$/,steps:['تب «ثبت سند» ← گروه «سایر» ← «لیست حقوق» (یا تب «حقوق» برای تعریف پرسنل).','ماه و کارمندان را انتخاب کنید، مبالغ را بررسی و «ثبت» کنید.']},
+    {t:'تغییر زبان یا رنگ برنامه',k:'زبان عربی انگلیسی رنگ تم ظاهر شخصی‌سازی',steps:['در نوار پایین صفحه «شخصی‌سازی» را بزنید.','زبان، رنگ و اندازهٔ متن را انتخاب کنید.']},
+  ],
+  _idx:null,
+  index(){ const out=[], seen=new Set(); const add=(t,path,fn,perm,kind)=>{ if(!t||typeof fn!=='function') return; if(perm&&!can(perm)) return; const key=t+'|'+path; if(seen.has(key)) return; seen.add(key); out.push({id:'i'+out.length,t,path,fn,kind}); };
+    const MN={intro:'معرفی‌ها',new:'سند جدید',proc:'پروسه‌ها',gold:'عملیات طلا',oil:'عملیات نفت',reps:'گزارش‌ها',sys:'مدیریت سیستم'};
+    Object.entries(HM).forEach(([k,items])=>{ if(offP(k)) return; items.forEach(it=>{ if(it==='-') return; if(Array.isArray(it[1])) it[1].forEach(s=>add(s[0],`منوی «${MN[k]}» ← ${it[0]}`,s[1],it[2],'menu')); else add(it[0],`منوی «${MN[k]}»`,it[1],it[2],'menu'); }); });
+    QUICK.forEach(([g,items])=>items.forEach(([ty,p,l])=>add(l,`تب «ثبت سند» ← ${g}`,()=>openForm(ty,p),PERM_OF[ty],'form')));
+    REPS.forEach(([k,l])=>{ if(typeof repOk==='function'&&!repOk(k)) return; add(l,'تب «گزارش‌ها»',toRep(k),null,'report'); });
+    $$('.tab').forEach(b=>{ if(b.hidden) return; const l=b.childNodes[0]?.textContent.trim(); add(l,'نوار بالا',()=>go(b.dataset.p),null,'page'); });
+    return out; },
+  norm(s){ return VC.nz(String(s||'')).replace(/[«»؟?!.,،:؛()\-–—/]/g,' ').replace(/\s+/g,' ').trim(); },
+  toks(q){ const w=AI.norm(q).split(' ').filter(x=>x&&!AI.STOP.has(x)&&!/^[\d۰-۹٠-٩]+$/.test(x)); const ex=[]; w.forEach(x=>{ const s=AI.SYN[x]||AI.SYN[x.replace(/^(ال|می|ب|ن)/,'')]; if(s) ex.push(...AI.norm(s).split(' ')); }); return {w,all:[...new Set([...w,...ex])]}; },
+  score(text,tk){ const T=' '+AI.norm(text)+' '; let s=0; tk.all.forEach(x=>{ if(x.length<2) return; if(T.includes(' '+x+' ')) s+=tk.w.includes(x)?3:1.5; else if(x.length>=3&&T.includes(' '+x.slice(0,Math.max(3,x.length-2)))) s+=tk.w.includes(x)?1.5:.7; }); return s; },
+  search(q){ const tk=AI.toks(q); if(!tk.all.length) return {guides:[],items:[],tk};
+    const idx=AI.index(); const guides=AI.G().filter(g=>!g.admin||S.isAdmin).map(g=>{ const it=g.ref?idx.find(i=>g.ref.test(i.t)):null; if(g.ref&&!it) return null; return {...g,it,s:AI.score(g.t+' '+g.k,tk)+AI.score(g.t,tk)*.5}; }).filter(g=>g&&g.s>=2.5).sort((a,b)=>b.s-a.s).filter((g,i,l)=>i===0||g.s>=l[0].s*.7);
+    const lbl=new Set(); const items=idx.map(i=>({...i,s:AI.score(i.t,tk)*1.4+AI.score(i.path,tk)*.3})).filter(i=>i.s>=2.5).sort((a,b)=>b.s-a.s).filter(i=>{ const k=AI.norm(i.t); if(lbl.has(k)) return false; lbl.add(k); return true; });
+    return {guides:guides.slice(0,2),items:items.slice(0,6),tk,idx}; },
+  hist:[], fns:{},
+  render(){ const box=$('#ai_log'); if(!box) return; AI.fns={}; let n=0; const btn=(fn,l)=>{ const k='f'+(n++); AI.fns[k]=fn; return `<button type="button" class="btn sm primary" data-aif="${k}">${esc(l)}</button>`; };
+    box.innerHTML=AI.hist.map(h=>{ if(h.me) return `<div class="aim me">${esc(h.me)}</div>`;
+      const r=h.r; let html='';
+      if(h.vc) html+=`<div class="aic"><b>⚡ ثبت مستقیم:</b> ${VC.summary(h.vc)}<div class="actions" style="margin-top:6px">${btn(()=>{ closeModal(); VC.apply(h.vc); },'پر کردن فرم')}</div></div>`;
+      r.guides.forEach((g,i)=>{ html+=`<div class="aic"><b>${esc(g.t)}</b>${g.it?`<div class="mini muted">مسیر: ${esc(g.it.path)} ← ${esc(g.it.t)}</div>`:''}<ol>${g.steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ol>${g.tip?`<div class="mini">💡 ${esc(g.tip)}</div>`:''}${g.it?`<div class="actions" style="margin-top:6px">${btn(()=>{ closeModal(); g.it.fn(); },'باز کن: '+g.it.t)}</div>`:''}</div>`; });
+      const used=new Set(r.guides.map(g=>g.it?.id)); const more=r.items.filter(i=>!used.has(i.id)).slice(0,r.guides.length?3:5);
+      if(more.length) html+=`<div class="aic"><div class="mini muted" style="margin-bottom:6px">${r.guides.length?'موارد مرتبط دیگر:':'این‌ها را پیدا کردم:'}</div>${more.map(i=>`<div class="aii"><div><b>${esc(i.t)}</b><div class="mini muted">${esc(i.path)}</div></div>${btn(()=>{ closeModal(); i.fn(); },'باز کن')}</div>`).join('')}</div>`;
+      if(h.ai===1) html+=`<div class="aic ai"><span class="mini muted">✨ دستیار هوشمند در حال نوشتن پاسخ…</span></div>`;
+      else if(h.ai&&h.ai.answer) html+=`<div class="aic ai"><div class="mini muted" style="margin-bottom:4px">✨ پاسخ دستیار هوشمند</div><div style="white-space:pre-wrap">${esc(h.ai.answer)}</div>${(h.ai.open||[]).map(id=>{ const it=(r.idx||[]).find(i=>i.id===id); return it?`<div class="actions" style="margin-top:6px">${btn(()=>{ closeModal(); it.fn(); },'باز کن: '+it.t)}</div>`:''; }).join('')}</div>`;
+      if(!html) html=`<div class="aic">متوجه نشدم دنبال چه هستید. با کلمات دیگری بنویسید؛ مثلاً «چطور حواله بفرستم؟»، «مانده حساب مشتری کجاست؟» یا «هزینهٔ برق را کجا ثبت کنم؟».</div>`;
+      return `<div class="aih">${html}</div>`; }).join('');
+    const last=box.querySelector('.aih:last-child'); box.scrollTop=last?last.offsetTop-box.offsetTop-4:box.scrollHeight; const sg=$('.aisug'); if(sg) sg.hidden=AI.hist.length>0; },
+  async remote(q,r){ const ctx=[...r.guides.map(g=>({id:g.it?.id||'',t:g.t,path:g.it?g.it.path+' ← '+g.it.t:'',steps:g.steps})),...r.items.map(i=>({id:i.id,t:i.t,path:i.path}))].slice(0,10);
+    const more=(r.idx||[]).filter(i=>!ctx.some(c=>c.id===i.id)).slice(0,120).map(i=>({id:i.id,t:i.t,path:i.path}));
+    const body={q,lang:(typeof getLook==='function'&&getLook().lang)||'fa',page:S.page,admin:!!S.isAdmin,ctx,more};
+    try{ if(window.__sb){ const {data,error}=await window.__sb.functions.invoke('assistant',{body}); if(error) return null; return data; }
+      if(S.settings.demo){ const res=await fetch('/api/assistant',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}); return res.ok?await res.json():null; } }catch(e){} return null; },
+  async ask(q){ q=q.trim(); if(!q) return; const r=AI.search(q); const v=VC.parse(q); const vc=(v.mode?v.cur:v.x)&&v.amt!=null?v:null;
+    const h={r,vc}; AI.hist.push({me:q},h); if(AI.hist.length>24) AI.hist.splice(0,AI.hist.length-24); 
+    const online=!!(window.__sb||S.settings.demo)&&AI.on!==false; if(online) h.ai=1; AI.render();
+    if(online){ const d=await AI.remote(q,r); if(d&&d.ok){ h.ai={answer:d.answer,open:d.open||[]}; } else { h.ai=null; if(d&&d.err==='not_configured') AI.on=false; } AI.render(); } },
+  dialog(){ openModal(`<div class="row" style="margin-bottom:8px"><h3>✨ دستیار</h3><button class="btn sm" data-close>بستن</button></div>
+     <p class="mini muted" style="margin-top:0">بنویسید چه کاری می‌خواهید انجام دهید؛ می‌گویم کجاست و چطور ثبت می‌شود. اگر مبلغ و ارز هم بنویسید، فرم را برایتان پر می‌کنم.</p>
+     <div id="ai_log" class="ailog"></div>
+     <div class="chips aisug">${['چطور حواله بفرستم؟','مانده حساب مشتری کجاست؟','هزینهٔ برق را کجا ثبت کنم؟','چطور سند اشتباه را ابطال کنم؟','نسخهٔ پشتیبان بگیرم'].map(s=>`<button type="button" class="chip" data-ais="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+     ${AI.on===false&&S.isAdmin&&window.__sb?'<p class="mini muted" style="margin:0 0 8px">پاسخ‌های هوشمند (✨) هنوز فعال نشده‌اند؛ فعلاً از راهنمای داخلی برنامه پاسخ داده می‌شود.</p>':''}
+     <form id="ai_f" class="aiin"><input id="ai_q" autocomplete="off" placeholder="مثلاً: می‌خواهم صورت‌حساب یک مشتری را در واتساپ بفرستم"><button class="btn primary" type="submit">بپرس</button></form>`);
+    AI.render(); const q=$('#ai_q'); q.focus();
+    $('#ai_f').onsubmit=e=>{ e.preventDefault(); const t=q.value; q.value=''; AI.ask(t); };
+    $$('[data-ais]').forEach(b=>b.onclick=()=>AI.ask(b.dataset.ais));
+    $('#ai_log').onclick=e=>{ const b=e.target.closest('[data-aif]'); if(b&&AI.fns[b.dataset.aif]) AI.fns[b.dataset.aif](); }; }
+};
+document.addEventListener('click',e=>{ if(e.target.closest('#aiBtn')){ try{ window.mdClose&&mdClose(); }catch(_){} AI.dialog(); } });
 document.addEventListener('click',e=>{ if(e.target.closest('#vcBtn')){ try{ window.mdClose&&mdClose(); }catch(_){} voiceDialog(); } });
 
 
